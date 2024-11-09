@@ -56,6 +56,7 @@ print(dre_today)
 ativos_previous = filter_previous_month(ativos)
 actual_month = pd.to_datetime("today").to_period("M").start_time
 twelve_month = actual_month + pd.DateOffset(months=-11)
+thirth_month = actual_month + pd.DateOffset(months=-12)
 
 # CORES
 #color_green = '#386150'
@@ -198,7 +199,7 @@ with econ:
             "datum.RESULTADO > 0 ? -10 : 10"  # Se o RESULTADO for positivo, coloca o rótulo acima (-10), senão abaixo (+10)
         ),
         #color="#1e6091",
-        #fontWeight="bold",
+        fontWeight="bold",
         #fontSize=15,
     ).encode(text=alt.Text("RESULTADO:Q", format=",.0f"))
     chart = chart + text
@@ -208,7 +209,7 @@ with econ_perc:
     dre_filtered = dre[(dre["MES"] <= actual_month) & (dre["MES"] >= twelve_month)]
     dre_filtered["PERC_RESULTADO"] = (
         dre_filtered["RESULTADO"] / dre_filtered["RECEITA TOTAL"]
-    ) * 100
+    )
     chart = (
         alt.Chart(dre_filtered)
         .transform_calculate(color_value="if(datum.PERC_RESULTADO < 0, 0, 1)")
@@ -256,73 +257,78 @@ with econ_perc:
             "datum.PERC_RESULTADO > 0 ? -10 : 10"  # Se o RESULTADO for positivo, coloca o rótulo acima (-10), senão abaixo (+10)
         ),
         # color="#1e6091",
-        # fontWeight="bold",
+        fontWeight="bold",
         # fontSize=15,
-    ).encode(text=alt.Text("PERC_RESULTADO:Q", format=",.1f"))
+    ).encode(text=alt.Text("PERC_RESULTADO:Q", format=",.1%"))
     chart = chart + text
     st.altair_chart(chart, use_container_width=True)
 
 
-# gastos_hm, gastos = st.columns(2)
+gastos_hm, gastos = st.columns(2)
 
-# with gastos_hm:
-#     # Filtrar o DataFrame até o mês atual
-#     df_long = dre[(dre["MES"] <= actual_month) & (dre["MES"] >= twelve_month)]
+with gastos_hm:
+    # Filtrar o DataFrame até o mês atual
+    df_long = dre[(dre["MES"] <= actual_month) & (dre["MES"] >= thirth_month)]
 
-#     # Reformatar o DataFrame para ter as categorias e valores em formato longo
-#     df_long = df_long.melt(
-#         id_vars=["MES", "MES_STR"],
-#         value_vars=[
-#             "DESPESAS TOTAL",
-#             "MERCADO",
-#             "DIVERSOS",
-#             "ASSINATURAS",
-#             "ROLE",
-#             "TRANSPORTE",
-#             "APARTAMENTO",
-#         ],
-#         var_name="Categoria",
-#         value_name="Valor",
-#     )
+    # Reformatar o DataFrame para ter as categorias e valores em formato longo
+    df_long = df_long.melt(
+        id_vars=["MES", "MES_STR"],
+        value_vars=[
+            "DESPESAS TOTAL",
+            "MERCADO",
+            "DIVERSOS",
+            "ASSINATURAS",
+            "ROLE",
+            "TRANSPORTE",
+            "APARTAMENTO",
+        ],
+        var_name="Categoria",
+        value_name="Valor",
+    )
 
-#     df_long = df_long.sort_values(by=["Categoria", "MES"])
-#     # Calcular a variação percentual mês a mês por categoria
-#     df_long["Var_perc"] = df_long.groupby(["Categoria"])["Valor"].pct_change() * 100
+    df_long = df_long.sort_values(by=["Categoria", "MES"])
+    # Calcular a variação percentual mês a mês por categoria
+    df_long["Var_perc"] = df_long.groupby(["Categoria"])["Valor"].pct_change()
 
-#     col_order = ['DESPESAS TOTAL','MERCADO','DIVERSOS','ASSINATURAS','ROLE','TRANSPORTE','APARTAMENTO']
+    col_order = ['DESPESAS TOTAL','MERCADO','DIVERSOS','ASSINATURAS','ROLE','TRANSPORTE','APARTAMENTO']
     
-#     # Criar o heatmap com Altair
-#     heatmap = (
-#         alt.Chart(df_long)
-#         .mark_rect()
-#         .encode(
-#             x=alt.X(
-#                 "Categoria:N", title=None,sort=col_order ,axis=alt.Axis(orient="top", labelAngle=0, labelAlign='center')
-#             ),
-#             y=alt.Y(
-#                 "MES_STR:N",
-#                 title=None,
-#                 sort=alt.SortField(field="date", order="ascending"),
-#             ),
-#             color=alt.Color(
-#                 "Var_perc:Q",
-#                 scale=alt.Scale(
-#                     scheme="redyellowgreen", reverse=True, domain=[-50, 50], clamp=True
-#                 ),
-#                 title=None,
-#                 legend=None,
-#             ),
-#             tooltip=["MES_STR:N", "Categoria:N", "Var_perc:Q"],
-#         )
-#         .properties(title="% VARIAÇÃO MENSAL", height=600)
-#     )
-#     # Adicionar os valores percentuais como texto no heatmap
-#     text = heatmap.mark_text(baseline="middle").encode(
-#         text=alt.Text("Var_perc:Q", format=",.1f"), color=alt.value("black")
-#     )
-#     # Combinar o heatmap e o texto
-#     chart = heatmap + text
-#     st.altair_chart(chart, use_container_width=True)
+    # Criar o heatmap com Altair
+    heatmap = (
+        alt.Chart(df_long)
+        .mark_rect()
+        .encode(
+            x=alt.X(
+                "Categoria:N", title=None,sort=col_order ,axis=alt.Axis(orient="top", labelAngle=0, labelAlign='center')
+            ),
+            y=alt.Y(
+                "MES_STR:N",
+                title=None,
+                sort=alt.SortField(field="date", order="ascending"),
+            ),
+            color=alt.Color(
+                "Var_perc:Q",
+                scale=alt.Scale(
+                    scheme='redyellowgreen', reverse=True, domain=[-0.5, 0.5], clamp=True
+                ),
+                title=None,
+                legend=None,
+            ),
+            tooltip=["MES_STR:N", "Categoria:N", "Var_perc:Q"],
+        )
+        .properties(title="% VARIAÇÃO MENSAL", height=600)
+    )
+    # Adicionar os valores percentuais como texto no heatmap
+    text = heatmap.mark_text(baseline="middle").encode(
+        text=alt.Text("Var_perc:Q", format=",.1%"), color=alt.condition(
+            (alt.datum.Var_perc >= 40) | (alt.datum.Var_perc <= -40),  # Se a variação for positiva
+            alt.value("white"),      # Texto preto
+            alt.value("black"),
+        fontWeight="bold"
+        )
+    )
+    # Combinar o heatmap e o texto
+    chart = heatmap + text
+    st.altair_chart(chart, use_container_width=True)
 
 # def gastos_barchart(df: pd.DataFrame, col_name: str):
 #     col = col_name
