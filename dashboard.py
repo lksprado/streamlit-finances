@@ -103,62 +103,6 @@ with bn_pl:
 # GRAFICOS RECEITA, DESPESA E RESULTADO
 rec_desp, econ, econ_perc = st.columns(3)
 
-def bars(df: pd.DataFrame, col_name:str, title:str):
-    col = col_name
-    dre_filtered = df[(df["MES"] <= actual_month) & (df["MES"] >= twelve_month)]
-    chart = (
-        alt.Chart(dre_filtered)
-        .transform_calculate(color_value= f"if(datum.{col} < 0, 0, 1)")
-        .mark_bar()
-        .encode(
-            x=alt.X(
-                "MES_STR:N",
-                title=None,
-                sort=alt.SortField(field="date", order="ascending"),
-                axis=alt.Axis(
-                    ticks=True,
-                    grid=False,
-                    domain=True,
-                    tickColor="gray",
-                    domainColor="gray",
-                    labelAngle=0
-                ),
-            ),
-            y=alt.Y(
-                f"{col}:Q",
-                title=None,
-                axis=alt.Axis(
-                    ticks=True,
-                    grid=False,
-                    domain=True,
-                    tickColor="gray",
-                    domainColor="gray",
-                ),
-            ),
-            color=alt.Color(
-                "color_value:O",
-                scale=alt.Scale(
-                    domain=[0, 1],
-                    range=[f"{color_red}", f"{color_green}"],
-                ),
-                legend=None,
-            ),
-        )
-        .properties(title=f"{title}")
-    )
-    text = chart.mark_text(
-        align="center",
-        baseline="middle",
-        dy=alt.expr(
-            "datum.RESULTADO > 0 ? -10 : 10"  # Se o RESULTADO for positivo, coloca o rótulo acima (-10), senão abaixo (+10)
-        ),
-        #color="#1e6091",
-        #fontWeight="bold",
-        #fontSize=15,
-    ).encode(text=alt.Text("RESULTADO:Q", format=",.0f"))
-    chart = chart + text
-    return chart
-
 with rec_desp:
     dre_filtered = dre[(dre["MES"] <= actual_month) & (dre["MES"] >= twelve_month)]
     chart = (
@@ -261,7 +205,7 @@ with econ:
     st.altair_chart(chart, use_container_width=True)
 
 with econ_perc:
-    dre_filtered = dre[dre["MES"] <= actual_month]
+    dre_filtered = dre[(dre["MES"] <= actual_month) & (dre["MES"] >= twelve_month)]
     dre_filtered["PERC_RESULTADO"] = (
         dre_filtered["RESULTADO"] / dre_filtered["RECEITA TOTAL"]
     ) * 100
@@ -280,6 +224,7 @@ with econ_perc:
                     domain=True,
                     tickColor="gray",
                     domainColor="gray",
+                    labelAngle=0
                 ),
             ),
             y=alt.Y(
@@ -297,7 +242,7 @@ with econ_perc:
                 "color_value:O",
                 scale=alt.Scale(
                     domain=[0, 1],
-                    range=["#da2c38", "#2a9d8f"],
+                    range=[f"{color_red}", f"{color_green}"],
                 ),
                 legend=None,
             ),
@@ -310,19 +255,19 @@ with econ_perc:
         dy=alt.expr(
             "datum.PERC_RESULTADO > 0 ? -10 : 10"  # Se o RESULTADO for positivo, coloca o rótulo acima (-10), senão abaixo (+10)
         ),
-        color="#1e6091",
-        fontWeight="bold",
-        fontSize=15,
+        # color="#1e6091",
+        # fontWeight="bold",
+        # fontSize=15,
     ).encode(text=alt.Text("PERC_RESULTADO:Q", format=",.1f"))
     chart = chart + text
     st.altair_chart(chart, use_container_width=True)
 
 
-# gastos_hm, gastos = st.columns([0.5,0.5])
+# gastos_hm, gastos = st.columns(2)
 
 # with gastos_hm:
 #     # Filtrar o DataFrame até o mês atual
-#     df_long = dre[dre["MES"] <= actual_month]
+#     df_long = dre[(dre["MES"] <= actual_month) & (dre["MES"] >= twelve_month)]
 
 #     # Reformatar o DataFrame para ter as categorias e valores em formato longo
 #     df_long = df_long.melt(
@@ -344,15 +289,8 @@ with econ_perc:
 #     # Calcular a variação percentual mês a mês por categoria
 #     df_long["Var_perc"] = df_long.groupby(["Categoria"])["Valor"].pct_change() * 100
 
-#     # # Calcular o total de gastos por mês
-#     # df_long_total = df_long.groupby('MES')['Valor'].sum().reset_index(name='Valor_total')
-
-#     # # Mesclar o total de gastos com o DataFrame original
-#     # df_long = df_long.merge(df_long_total, on='MES', how='inner')
-
-#     # # Calcular a porcentagem dos gastos por categoria em relação ao total mensal
-#     # df_long['Valor_perc'] = (df_long['Valor'] / df_long['Valor_total']) * 100
 #     col_order = ['DESPESAS TOTAL','MERCADO','DIVERSOS','ASSINATURAS','ROLE','TRANSPORTE','APARTAMENTO']
+    
 #     # Criar o heatmap com Altair
 #     heatmap = (
 #         alt.Chart(df_long)
@@ -378,7 +316,6 @@ with econ_perc:
 #         )
 #         .properties(title="% VARIAÇÃO MENSAL", height=600)
 #     )
-
 #     # Adicionar os valores percentuais como texto no heatmap
 #     text = heatmap.mark_text(baseline="middle").encode(
 #         text=alt.Text("Var_perc:Q", format=",.1f"), color=alt.value("black")
