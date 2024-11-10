@@ -78,7 +78,6 @@ class GoogleFinance:
                 return pd.to_datetime(value, format="%m-%Y", errors="coerce")
             else:
                 return pd.NaT
-
         df[col] = df[col].apply(convert_to_datetime)
         return df
 
@@ -205,15 +204,12 @@ class GoogleFinance:
         ativos = ativos.dropna()
         ativos = ativos.map(
             lambda x: (
-                str(x)
-                .replace("R$ ", "")
-                .replace(".", "")
-                .replace(",", ".")
-                .replace("%", "")
+                str(x).replace("R$ ", "").replace(".", "").replace(",", ".").replace('%',"").replace('$',"")
                 if isinstance(x, str)
                 else x
             )
-        ).astype(float, errors="ignore")
+        ).apply(pd.to_numeric, errors='coerce').astype(float)
+        ativos["MES"] = pd.to_datetime(ativos["MES"], errors="ignore")
         ativos["MES_STR"] = ativos["MES"].dt.strftime("%b/%y")
         return ativos
 
@@ -329,8 +325,10 @@ if __name__ == "__main__":
     }
 
     plans = GoogleFinance(sheet_dict=sheet_dict)
-    #dre = plans.dre_df_transformation()
-    # atv = plans.ativos_df_transformation()
-    # print(atv.columns)
-    luz = plans.luz_df_transformation()
-    print(luz)
+    # dre = plans.dre_df_transformation()
+    # print(dre.dtypes)
+    atv = plans.ativos_df_transformation()
+    print(atv.tail())
+    print(atv.dtypes)
+    # luz = plans.luz_df_transformation()
+    # print(luz)
