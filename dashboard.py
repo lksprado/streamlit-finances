@@ -1,11 +1,11 @@
 import os
 import sys
-
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 import locale
 from datetime import datetime as dt
 
+import time
 import altair as alt
 import pandas as pd
 import streamlit as st
@@ -32,14 +32,12 @@ def get_plans():
     plans = GoogleFinance(sheet_dict=sheet_dict)
     return plans
 
-
 def filter_latest_month(dataframe: pd.DataFrame):
     df = dataframe
     today = pd.to_datetime("today").to_period("M").start_time
     filtro = df["MES"] == today
     df = df.loc[filtro]
     return df
-
 
 def filter_previous_month(dataframe: pd.DataFrame):
     df = dataframe
@@ -53,8 +51,13 @@ def filter_previous_month(dataframe: pd.DataFrame):
 # INSTANCIAR
 plans = get_plans()
 dre = plans.dre_df_transformation()
+time.sleep(2)
 ativos = plans.ativos_df_transformation()
+time.sleep(2)
 cartao = plans.cartao_df_transformation()
+time.sleep(2)
+luz = make_luz(sheet_dict)
+print(luz)
 
 # GERAR DATAS
 dre_today = filter_latest_month(dre)
@@ -98,13 +101,13 @@ with bn_dif:
     st.metric("Resultado", dif)
 
 with bn_pb:
-    patri_total = float(ativos_previous["PATRIMONIO BRUTO"])
+    patri_total = float(ativos_previous["PATRIMONIO_BRUTO"])
     patri_total = locale.currency(patri_total, grouping=True)
     patri_total = patri_total.split(",")[0]
     st.metric("Patrimônio Bruto", patri_total)
 
 with bn_pl:
-    patri_liq = float(ativos_previous["PATRIMONIO LIQUIDO"])
+    patri_liq = float(ativos_previous["PATRIMONIO_LIQUIDO"])
     patri_liq = locale.currency(patri_liq, grouping=True)
     patri_liq = patri_liq.split(",")[0]
     st.metric("Patrimônio Líquido", patri_liq)
@@ -117,7 +120,7 @@ with rec_desp:
     chart = (
         alt.Chart(dre_filtered)
         .transform_fold(["RECEITA TOTAL", "DESPESAS TOTAL"], as_=["Categoria", "Valor"])
-        .mark_line()
+        .mark_line(strokeWidth=4)
         .encode(
             x=alt.X(
                 "MES_STR:N",
@@ -270,7 +273,6 @@ with econ_perc:
     chart = chart + text
     st.altair_chart(chart, use_container_width=True)
 
-
 gastos_hm, gastos = st.columns([1, 2])
 
 with gastos_hm:
@@ -352,7 +354,6 @@ with gastos_hm:
     chart = heatmap + text
     st.altair_chart(chart, use_container_width=True)
 
-
 def gastos_barchart(df: pd.DataFrame, col_name: str):
     col = col_name
     dre_filtered = df[
@@ -403,7 +404,6 @@ def gastos_barchart(df: pd.DataFrame, col_name: str):
     # st.altair_chart(chart, use_container_width=True)
     return chart
 
-
 with gastos:
     mercado, diversos, assinaturas = st.columns(3)
     with mercado:
@@ -431,24 +431,203 @@ with gastos:
         mercado = gastos_barchart(dre, "APARTAMENTO")
         st.altair_chart(mercado, use_container_width=True)
 
-patrimonio, investimentos, reserva, dif_rs = st.columns(4)
+patrimonio, investimentos_reserva, dif_rs = st.columns(3)
 
 print(ativos.columns)
 with patrimonio:
     ativos_filtered = ativos[(ativos["MES"] <= actual_month) & (ativos["MES"] >= twelve_month)]
-    df_long = ativos_filtered
-    df_long = df_long.melt(
-        id_vars=["MES", "MES_STR"],
-        value_vars=[
-            "CARRO",
-            "PATRIMONIO LIQUIDO"
-        ],
-        var_name="Categoria",
-        value_name="Valor",
-    )
-    df_long = df_long.sort_values(by=["Categoria", "MES"])
     chart = (
-        alt.Chart(df_long)
+        alt.Chart(ativos_filtered)
+        .transform_fold(["CARRO", "PATRIMONIO_LIQUIDO"], as_=["Categoria", "Valor"])
+        .mark_bar()
+        .encode(
+            x=alt.X(
+                "MES_STR:N",
+                title=None,
+                sort=alt.SortField(field="date", order="ascending"),
+                axis=alt.Axis(
+                    ticks=True,
+                    grid=False,
+                    domain=True,
+                    tickColor="gray",
+                    domainColor="gray",
+                    labelAngle=0
+                ),
+            ),
+            y=alt.Y(
+                "Valor:Q",
+                title=None,
+                axis=alt.Axis(
+                    ticks=True,
+                    grid=False,
+                    domain=True,
+                    tickColor="gray",
+                    domainColor="gray",
+                ),
+            ),
+            color=alt.Color(
+                "Categoria:N",
+                scale=alt.Scale(
+                    domain=["CARRO", "PATRIMONIO_LIQUIDO"],
+                    range=["#8338ec", "#1dd3b0"],
+                ),
+                legend=None,
+            ),
+        )
+        .properties(title="R$ PATRIMÔNIO")
+    )
+    st.altair_chart(chart, use_container_width=True)
+
+def ativos_charts(df: pd.DataFrame, col_name: str):
+    col = col_name
+    ativos_filtered = ativos[(ativos["MES"] <= actual_month) & (ativos["MES"] >= twelve_month)]
+    chart = (
+        alt.Chart(ativos_filtered)
+        .mark_line(color = '#1dd3b0', strokeWidth=4)
+        .encode(
+            x=alt.X(
+                "MES_STR:N",
+                title=None,
+                sort=alt.SortField(field="date", order="ascending"),
+                axis=alt.Axis(
+                    ticks=True,
+                    grid=False,
+                    domain=True,
+                    tickColor="gray",
+                    domainColor="gray",
+                    labelAngle=0
+                ),
+            ),
+            y=alt.Y(
+                f"{col}:Q",
+                title=None,
+                axis=alt.Axis(
+                    ticks=True,
+                    grid=False,
+                    domain=True,
+                    tickColor="gray",
+                    domainColor="gray",
+                ),
+            ),
+        )
+        .properties(title=f"{col}")
+    )
+    return chart
+
+with investimentos_reserva:
+    ativos_filtered = ativos[(ativos["MES"] <= actual_month) & (ativos["MES"] >= twelve_month)]
+    chart = (
+        alt.Chart(ativos_filtered)
+        .transform_fold(["INVESTIMENTO", "RESERVAS"], as_=["Categoria", "Valor"])
+        .mark_line(strokeWidth=4)
+        .encode(
+            x=alt.X(
+                "MES_STR:N",
+                title=None,
+                sort=alt.SortField(field="date", order="ascending"),
+                axis=alt.Axis(
+                    ticks=True,
+                    grid=False,
+                    domain=True,
+                    tickColor="gray",
+                    domainColor="gray",
+                    labelAngle=0
+                ),
+            ),
+            y=alt.Y(
+                "Valor:Q",
+                title=None,
+                axis=alt.Axis(
+                    ticks=True,
+                    grid=False,
+                    domain=True,
+                    tickColor="gray",
+                    domainColor="gray",
+                ),
+            ),
+            color=alt.Color(
+                "Categoria:N",
+                scale=alt.Scale(
+                    domain=["INVESTIMENTO", "RESERVAS"],
+                    range=["#1dd3b0", "#086375"],
+                ),
+                legend=None,
+            ),
+        )
+        .properties(title="INVESTIMENTOS x RESERVAS")
+    )
+    st.altair_chart(chart, use_container_width=True)
+
+with dif_rs:
+    ativos_filtered = ativos[(ativos["MES"] <= actual_month) & (ativos["MES"] >= twelve_month)]
+    chart = (
+        alt.Chart(ativos_filtered)
+        .transform_calculate(color_value="if(datum.DIF_PATRIMONIO < 0, 0, 1)")
+        .mark_bar()
+        .encode(
+            x=alt.X(
+                "MES_STR:N",
+                title=None,
+                sort=alt.SortField(field="date", order="ascending"),
+                axis=alt.Axis(
+                    ticks=True,
+                    grid=False,
+                    domain=True,
+                    tickColor="gray",
+                    domainColor="gray",
+                    labelAngle=0,
+                ),
+            ),
+            y=alt.Y(
+                "DIF_PATRIMONIO:Q",
+                title=None,
+                axis=alt.Axis(
+                    ticks=True,
+                    grid=False,
+                    domain=True,
+                    tickColor="gray",
+                    domainColor="gray",
+                ),
+            ),
+            color=alt.Color(
+                "color_value:O",
+                scale=alt.Scale(
+                    domain=[0, 1],
+                    range=[f"{color_red}", "#1dd3b0"],
+                ),
+                legend=None,
+            ),
+        )
+        .properties(title="RESULTADO PATRIMONIAL")
+    )
+    text = chart.mark_text(
+        align="center",
+        baseline="middle",
+        dy=alt.expr(
+            "datum.DIF_PATRIMONIO > 0 ? -10 : 10"  # Se o RESULTADO for positivo, coloca o rótulo acima (-10), senão abaixo (+10)
+        ),
+        # color="#1e6091",
+        fontWeight="bold",
+        # fontSize=15,
+    ).encode(text=alt.Text("DIF_PATRIMONIO:Q", format=",.0f"))
+    chart = chart + text
+    st.altair_chart(chart, use_container_width=True)
+
+# with cresc_real:
+#     cr = ativos_charts(ativos,'% CRESCIMENTO REAL')
+#     st.altair_chart(cr, use_container_width=True)
+
+# with cresc_real_acum:
+#     crum = ativos_charts(ativos,'% CRESCIMENTO REAL')
+#     st.altair_chart(crum, use_container_width=True)
+
+luzes,cc = st.columns(2)
+
+with luzes:
+    luz_filtered = luz[luz["MES"] >= twelve_month]
+    chart = (
+        alt.Chart(luz_filtered)
+        .transform_fold(["FATURA", "FATURA_PREVISTA"], as_=["Categoria", "Valor"])
         .mark_bar()
         .encode(
             x=alt.X(
@@ -477,166 +656,15 @@ with patrimonio:
             color=alt.Color(
                 "Categoria:N",
                 scale=alt.Scale(
-                    domain=["CARRO", "PATRIMONIO LIQUIDO"],
-                    range=["#086375", "#1dd3b0"],
+                    domain=["FATURA", "FATURA_PREVISTA"],
+                    range=["#fd3e81", "#adb5bd"],
                 ),
                 legend=None,
             ),
         )
-        .properties(title="PATRIMÔNIO")
+        .properties(title="LUZ")
     )
     st.altair_chart(chart, use_container_width=True)
-
-# def ativos_charts(df: pd.DataFrame, col_name: str):
-#     col = col_name
-#     ativos_filtered = df[df["MES"] <= actual_month]
-#     chart = (
-#         alt.Chart(ativos_filtered)
-#         .mark_line()
-#         .encode(
-#             x=alt.X(
-#                 "MES_STR:N",
-#                 title=None,
-#                 sort=alt.SortField(field="date", order="ascending"),
-#                 axis=alt.Axis(
-#                     ticks=True,
-#                     grid=False,
-#                     domain=True,
-#                     tickColor="gray",
-#                     domainColor="gray",
-#                 ),
-#             ),
-#             y=alt.Y(
-#                 f"{col}:Q",
-#                 title=None,
-#                 axis=alt.Axis(
-#                     ticks=True,
-#                     grid=False,
-#                     domain=True,
-#                     tickColor="gray",
-#                     domainColor="gray",
-#                 ),
-#             ),
-#         )
-#         .properties(title=f"{col}")
-#     )
-#     return chart
-
-# with investimentos:
-#     invest = ativos_charts(ativos,'INVESTIMENTO')
-#     st.altair_chart(invest, use_container_width=True)
-
-# with reserva:
-#     rsv = ativos_charts(ativos, 'RESERVAS')
-#     st.altair_chart(rsv, use_container_width=True)
-
-# with dif_rs:
-#     dif = ativos_charts(ativos, 'DIF PATRIMONIO')
-#     st.altair_chart(dif, use_container_width=True)
-
-
-# bradesco, nuinvest, avenue, wise, daycoval = st.columns(5)
-
-# with bradesco:
-#     brad = ativos_charts(ativos,'BRADESCO')
-#     st.altair_chart(brad, use_container_width=True)
-
-# with nuinvest:
-#     nu = ativos_charts(ativos,'NUIVEST LUCAS')
-#     st.altair_chart(nu, use_container_width=True)
-
-# with avenue:
-#     av = ativos_charts(ativos,'AVENUE')
-#     st.altair_chart(av, use_container_width=True)
-
-# with wise:
-#     ws = ativos_charts(ativos,'WISE')
-#     st.altair_chart(ws, use_container_width=True)
-
-# with daycoval:
-#     day = ativos_charts(ativos,'DAYCOVAL')
-#     st.altair_chart(day, use_container_width=True)
-
-
-# bancobrasil, sofisa, iti, nubank, nuinvest2 = st.columns(5)
-
-# with bancobrasil:
-#     bb = ativos_charts(ativos,'BANCO BRASIL')
-#     st.altair_chart(bb, use_container_width=True)
-
-# with sofisa:
-#     sf = ativos_charts(ativos,'SOFISA')
-#     st.altair_chart(sf, use_container_width=True)
-
-# with iti:
-#     it = ativos_charts(ativos,'ITI')
-#     st.altair_chart(it, use_container_width=True)
-
-# with nubank:
-#     nub = ativos_charts(ativos,'NUBANK')
-#     st.altair_chart(nub, use_container_width=True)
-
-# with nuinvest2:
-#     nu2 = ativos_charts(ativos,'NUINVEST JESSICA')
-#     st.altair_chart(nu2, use_container_width=True)
-
-# cresc_real, cresc_real_acum = st.columns(2)
-
-# with cresc_real:
-#     cr = ativos_charts(ativos,'% CRESCIMENTO REAL')
-#     st.altair_chart(cr, use_container_width=True)
-
-# with cresc_real_acum:
-#     crum = ativos_charts(ativos,'% CRESCIMENTO REAL')
-#     st.altair_chart(crum, use_container_width=True)
-
-# luzes,cc = st.columns(2)
-
-# with luzes:
-#     luz = make_luz(sheet_dict)
-#     luz["MES_STR"] = luz["MES"].dt.strftime("%b/%y")
-
-#     luz_filtered = luz[luz["MES"] <= actual_month]
-#     chart = (
-#         alt.Chart(luz_filtered)
-#         .transform_fold(["FATURA", "FATURA_PREVISTA"], as_=["Categoria", "Valor"])
-#         .mark_bar()
-#         .encode(
-#             x=alt.X(
-#                 "MES_STR:N",
-#                 title=None,
-#                 sort=alt.SortField(field="date", order="ascending"),
-#                 axis=alt.Axis(
-#                     ticks=True,
-#                     grid=False,
-#                     domain=True,
-#                     tickColor="gray",
-#                     domainColor="gray",
-#                 ),
-#             ),
-#             y=alt.Y(
-#                 "Valor:Q",
-#                 title=None,
-#                 axis=alt.Axis(
-#                     ticks=True,
-#                     grid=False,
-#                     domain=True,
-#                     tickColor="gray",
-#                     domainColor="gray",
-#                 ),
-#             ),
-#             color=alt.Color(
-#                 "Categoria:N",
-#                 scale=alt.Scale(
-#                     domain=["FATURA", "FATURA_PREVISTA"],
-#                     range=["#38b000", "#da2c38"],
-#                 ),
-#                 legend=None,
-#             ),
-#         )
-#         .properties(title="LUZ")
-#     )
-#     st.altair_chart(chart, use_container_width=True)
 
 # with cc:
 #     card = make
