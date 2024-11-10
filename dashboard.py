@@ -9,6 +9,10 @@ import pandas as pd
 import streamlit as st
 from src.get_data import GoogleFinance
 
+
+pd.set_option('display.max_columns', None)
+pd.set_option('display.max_rows', None)
+
 ## CONFIGURACOES INICIAIS ##########################################################################################################################################################
 st.set_page_config("FINANCES", layout="wide", page_icon="📊")
 st.header("FINANCES")
@@ -24,8 +28,8 @@ sheet_dict = {
 }
 
 ## OBTER DADOS DE PLANILHAS ##########################################################################################################################################################
-@st.cache_data
-@st.cache_resource
+# @st.cache_data
+# @st.cache_resource
 def get_plans():
     plans = GoogleFinance(sheet_dict=sheet_dict)
     return plans
@@ -52,6 +56,7 @@ dre = plans.dre_df_transformation()
 ativos = plans.ativos_df_transformation()
 cartao = plans.cartao_df_transformation()
 luz = plans.luz_df_transformation()
+
 
 ## GERAR DATAS ##########################################################################################################################################################
 dre_today = filter_latest_month(dre)
@@ -332,7 +337,6 @@ def gastos_barchart(df: pd.DataFrame, col_name: str):
         )
         .properties(title=f"R$ {col}")
     )
-    # Adicionar texto ao gráfico (valores das barras)
     text = chart.mark_text(
         align="center",
         baseline="bottom",
@@ -341,9 +345,7 @@ def gastos_barchart(df: pd.DataFrame, col_name: str):
         fontWeight="bold",
         # fontSize=15,
     ).encode(text=alt.Text(f'R$ {col}:N'))
-    # Combinar o gráfico com o texto
     chart = chart + text
-    # st.altair_chart(chart, use_container_width=True)
     return chart
 
 total_hm = st.container()
@@ -463,10 +465,12 @@ patrimonio, investimentos_reserva, dif_rs = st.columns(3)
 
 with patrimonio:
     ativos_filtered = ativos[(ativos["MES"] <= actual_month) & (ativos["MES"] >= thirth_month)]
+    ativos_filtered['PATRIMONIO_BRUTO_FORMATADO'] = ativos_filtered['PATRIMONIO_BRUTO'].apply(lambda x: f"{x:,.0f}".replace(",", ".") if pd.notnull(x) else ""
+    )
+    print(ativos['PATRIMONIO_BRUTO'])
     chart = (
         alt.Chart(ativos_filtered)
-        .transform_fold(["CARRO", "PATRIMONIO_LIQUIDO"], as_=["Categoria", "Valor"])
-        .mark_bar()
+        .mark_bar(color="#00cecb")
         .encode(
             x=alt.X(
                 "MES_STR:N",
@@ -482,42 +486,28 @@ with patrimonio:
                 ),
             ),
             y=alt.Y(
-                "Valor:Q",
+                "PATRIMONIO_BRUTO:Q",
                 title=None,
                 axis=alt.Axis(
-                    ticks=True,
+                    #ticks=True,
                     grid=False,
                     domain=True,
-                    tickColor="gray",
+                    #tickColor="gray",
                     domainColor="gray",
+                    labels=False,
                 ),
             ),
-            color=alt.Color(
-                "Categoria:N",
-                scale=alt.Scale(
-                    domain=["CARRO", "PATRIMONIO_LIQUIDO"],
-                    range=["#8338ec", "#1dd3b0"],
-                ),
-                legend=alt.Legend(direction='vertical', columns = 1, title=None, orient='none',legendX=0, legendY=-10),
-            ),
-            order=alt.Order('Categoria:N', sort='ascending')
         )
-        .properties(title="R$ PATRIMÔNIO")
+        .properties(title=f"R$ PATRIMONIO_BRUTO")
     )
-    text = (
-        alt.Chart(ativos_filtered)
-        .transform_fold(["CARRO", "PATRIMONIO_LIQUIDO"], as_=["Categoria", "Valor"])
-        .mark_text(baseline='top', dy=10, fontWeight="bold")
-        .encode(
-            x=alt.X('MES_STR:N', sort = alt.SortField("date",'ascending'),title=None,axis=alt.Axis(labelAngle=0)),
-            y=alt.Y('Valor:Q',title=None, stack='zero'),
-            #detail='Categoria:N',
-            text=alt.Text('Valor:Q'),
-            color=alt.value("white"),
-            #legend=alt.Legend(direction='vertical', columns = 1, title=None, orient='none',legendX=0, legendY=-10),
-            order=alt.Order('Categoria:N', sort='ascending')
-        )
-    )
+    text = chart.mark_text(
+        align="center",
+        baseline="bottom",
+        dy=0,
+        color="#00cecb",
+        fontWeight="bold",
+        # fontSize=15,
+    ).encode(text=alt.Text('PATRIMONIO_BRUTO_FORMATADO:N'))
     chart = chart + text
     st.altair_chart(chart, use_container_width=True)
 
