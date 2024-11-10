@@ -67,7 +67,7 @@ thirth_month = actual_month + pd.DateOffset(months=-12)
 
 # CORES
 # color_green = '#386150'
-color_green = "#39FF14"
+color_green = "#69ff94"
 # color_red = '#FF4365'
 color_red = "#FC440F"
 color_red2 = "#ff5e5b"
@@ -270,9 +270,66 @@ with econ_perc:
     chart = chart + text
     st.altair_chart(chart, use_container_width=True)
 
-gastos_hm, gastos = st.columns([1, 2])
+def gastos_barchart(df: pd.DataFrame, col_name: str):
+    col = col_name
+    dre_filtered = df[
+        (df["MES"] <= forward_month) & (dre["MES"] >= thirth_month)
+    ]  # Ajustando o filtro do DataFrame
+    chart = (
+        alt.Chart(dre_filtered)
+        .mark_bar(color=f"{color_red2}")
+        .encode(
+            x=alt.X(
+                "MES_STR:N",
+                title=None,
+                sort=alt.SortField(field="date", order="ascending"),
+                axis=alt.Axis(
+                    ticks=True,
+                    grid=False,
+                    domain=True,
+                    tickColor="gray",
+                    domainColor="gray",
+                ),
+            ),
+            y=alt.Y(
+                f"{col}:Q",
+                title=None,
+                axis=alt.Axis(
+                    ticks=True,
+                    grid=False,
+                    domain=True,
+                    tickColor="gray",
+                    domainColor="gray",
+                ),
+            ),
+        )
+        .properties(title=f"{col}")
+    )
+    # Adicionar texto ao gráfico (valores das barras)
+    text = chart.mark_text(
+        align="center",
+        baseline="bottom",
+        dy=0,
+        color=f"{color_red2}",
+        fontWeight="bold",
+        # fontSize=15,
+    ).encode(text=alt.Text(f"{col}:Q", format=",.0f"))
 
-with gastos_hm:
+    # Combinar o gráfico com o texto
+    chart = chart + text
+    # st.altair_chart(chart, use_container_width=True)
+    return chart
+
+
+total_hm = st.container()
+
+total_hm, gastos = st.columns([1, 2])
+
+with total_hm:
+    total = gastos_barchart(dre, "DESPESAS TOTAL")
+    st.altair_chart(total, use_container_width=True)
+
+
     # Filtrar o DataFrame até o mês atual
     df_long = dre[(dre["MES"] <= actual_month) & (dre["MES"] >= thirth_month)]
 
@@ -335,7 +392,7 @@ with gastos_hm:
             ),
             tooltip=["MES_STR:N", "Categoria:N", "Var_perc:Q"],
         )
-        .properties(title="% VARIAÇÃO MENSAL DOS GASTOS", height=720)
+        .properties(title="% VARIAÇÃO MENSAL DOS GASTOS", height=350)
     )
     # Adicionar os valores percentuais como texto no heatmap
     text = heatmap.mark_text(baseline="middle", fontWeight="bold").encode(
@@ -351,55 +408,6 @@ with gastos_hm:
     chart = heatmap + text
     st.altair_chart(chart, use_container_width=True)
 
-def gastos_barchart(df: pd.DataFrame, col_name: str):
-    col = col_name
-    dre_filtered = df[
-        (df["MES"] <= forward_month) & (dre["MES"] >= thirth_month)
-    ]  # Ajustando o filtro do DataFrame
-    chart = (
-        alt.Chart(dre_filtered)
-        .mark_bar(color=f"{color_red2}")
-        .encode(
-            x=alt.X(
-                "MES_STR:N",
-                title=None,
-                sort=alt.SortField(field="date", order="ascending"),
-                axis=alt.Axis(
-                    ticks=True,
-                    grid=False,
-                    domain=True,
-                    tickColor="gray",
-                    domainColor="gray",
-                ),
-            ),
-            y=alt.Y(
-                f"{col}:Q",
-                title=None,
-                axis=alt.Axis(
-                    ticks=True,
-                    grid=False,
-                    domain=True,
-                    tickColor="gray",
-                    domainColor="gray",
-                ),
-            ),
-        )
-        .properties(title=f"{col}")
-    )
-    # Adicionar texto ao gráfico (valores das barras)
-    text = chart.mark_text(
-        align="center",
-        baseline="bottom",
-        dy=0,
-        color=f"{color_red2}",
-        fontWeight="bold",
-        # fontSize=15,
-    ).encode(text=alt.Text(f"{col}:Q", format=",.0f"))
-
-    # Combinar o gráfico com o texto
-    chart = chart + text
-    # st.altair_chart(chart, use_container_width=True)
-    return chart
 
 with gastos:
     mercado, diversos, assinaturas = st.columns(3)
@@ -429,7 +437,6 @@ with gastos:
         st.altair_chart(mercado, use_container_width=True)
 
 patrimonio, investimentos_reserva, dif_rs = st.columns(3)
-
 
 with patrimonio:
     ativos_filtered = ativos[(ativos["MES"] <= actual_month) & (ativos["MES"] >= twelve_month)]
@@ -468,7 +475,7 @@ with patrimonio:
                     domain=["CARRO", "PATRIMONIO_LIQUIDO"],
                     range=["#8338ec", "#1dd3b0"],
                 ),
-                legend=None,
+                legend=alt.Legend(direction='vertical', columns = 1, title=None, orient='none',legendX=0, legendY=-10),
             ),
         )
         .properties(title="R$ PATRIMÔNIO")
@@ -516,7 +523,7 @@ with investimentos_reserva:
     chart = (
         alt.Chart(ativos_filtered)
         .transform_fold(["INVESTIMENTO", "RESERVAS"], as_=["Categoria", "Valor"])
-        .mark_line(strokeWidth=4)
+        .mark_bar(strokeWidth=4)
         .encode(
             x=alt.X(
                 "MES_STR:N",
@@ -548,11 +555,11 @@ with investimentos_reserva:
                     domain=["INVESTIMENTO", "RESERVAS"],
                     range=["#1dd3b0", "#086375"],
                 ),
-                legend=None,
+                legend=alt.Legend(direction='vertical', columns = 1, title=None, orient='none',legendX=0, legendY=-10),
             ),
         )
         .properties(title="INVESTIMENTOS x RESERVAS")
-    )
+        )
     st.altair_chart(chart, use_container_width=True)
 
 with dif_rs:
@@ -618,7 +625,7 @@ with dif_rs:
 #     crum = ativos_charts(ativos,'% CRESCIMENTO REAL')
 #     st.altair_chart(crum, use_container_width=True)
 
-luz_fatura, luz_kwh = st.columns(2)
+luz_fatura, luz_kwh, preco_kwh = st.columns(3)
 
 with luz_fatura:
     luz_filtered = luz[luz["MES"] >= twelve_month]
@@ -672,7 +679,7 @@ with luz_fatura:
     ).encode(
         text=alt.Text("Valor:Q", format=",.0f"),
         color=alt.condition(
-            alt.datum.Categoria == "FATURA", 
+            alt.datum.Categoria == "FATURA DA CONTA DE LUZ", 
             alt.value("#fd3e81"),  # Cor do texto para "FATURA"
             alt.value("#adb5bd")   # Cor do texto para "FATURA_PREVISTA"
         )
@@ -722,7 +729,7 @@ with luz_kwh:
                 legend=None,
             ),
         )
-        .properties(title="LUZ")
+        .properties(title="CONSUMO KWH POR DIA")
     )
     text = chart.mark_text(
         align="center",
@@ -744,5 +751,38 @@ with luz_kwh:
     # st.altair_chart(chart, use_container_width=True)
     st.altair_chart(chart, use_container_width=True)
 
-print(luz_filtered)
-
+with preco_kwh:
+    luz_filtered = luz[(luz["MES"] <= actual_month) & (luz["MES"] >= twelve_month)]
+    chart = (
+        alt.Chart(luz_filtered)
+        .mark_line(color='#fd3e81')
+        .encode(
+            x=alt.X(
+                "MES_STR:N",
+                title=None,
+                sort=alt.SortField(field="date", order="ascending"),
+                axis=alt.Axis(
+                    ticks=True,
+                    grid=False,
+                    domain=True,
+                    tickColor="gray",
+                    domainColor="gray",
+                    labelAngle=0
+                ),
+            ),
+            y=alt.Y(
+                "PRECO KWH:Q",
+                title=None,
+                axis=alt.Axis(
+                    ticks=True,
+                    grid=False,
+                    domain=True,
+                    tickColor="gray",
+                    domainColor="gray",
+                ),
+            ),
+        )
+        .properties(title="PREÇO KWH")
+    )
+    # st.altair_chart(chart, use_container_width=True)
+    st.altair_chart(chart, use_container_width=True)
