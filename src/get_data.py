@@ -5,6 +5,7 @@ from datetime import datetime
 import gspread as gp
 import pandas as pd
 from dotenv import load_dotenv
+from statsmodels.tsa.holtwinters import ExponentialSmoothing
 
 locale.setlocale(locale.LC_ALL, "pt_BR.UTF-8")
 
@@ -238,7 +239,57 @@ class GoogleFinance:
                 else x
             )
         ).astype(float, errors="ignore")
-        return luz
+
+        luz.set_index("MES", inplace=True)
+        luz = luz.asfreq("MS")
+
+        # Modelo e previsão para 'FATURA'
+        modelo_fatura = ExponentialSmoothing(
+            luz["FATURA"],
+            trend="add",
+            seasonal='add',
+            freq="MS",
+            initialization_method="estimated",
+        )
+        ajuste_fatura = modelo_fatura.fit()
+        previsao_fatura = ajuste_fatura.forecast(steps=3)
+
+        # Modelo e previsão para 'KWH DIA'
+        modelo_kwh_dia = ExponentialSmoothing(
+            luz["KWH DIA"],
+            trend="add",
+            seasonal='add',
+            freq="MS",
+            initialization_method="estimated",
+        )
+        ajuste_kwh_dia = modelo_kwh_dia.fit()
+        previsao_kwh_dia = ajuste_kwh_dia.forecast(steps=3)
+
+        # Criar o índice futuro para os próximos 3 meses
+        index_futuro = pd.date_range(
+            start=luz.index[-1] + pd.offsets.MonthBegin(1), periods=3, freq="MS"
+        )
+
+        # DataFrames de previsões
+        previsoes_fatura_df = pd.DataFrame(
+            previsao_fatura, index=index_futuro, columns=["FATURA_PREVISTA"]
+        )
+        previsoes_kwh_dia_df = pd.DataFrame(
+            previsao_kwh_dia, index=index_futuro, columns=["KWH_DIA_PREVISTO"]
+        )
+
+        # Concatenar previsões ao DataFrame original
+        luz_com_previsao = pd.concat([luz, previsoes_fatura_df, previsoes_kwh_dia_df], axis=1)
+        luz_com_previsao = luz_com_previsao.reset_index().rename(columns={"index": "MES"})
+
+        # Formatar e arredondar colunas de previsão
+        luz_com_previsao["FATURA_PREVISTA"] = luz_com_previsao["FATURA_PREVISTA"].round(2)
+        luz_com_previsao["KWH_DIA_PREVISTO"] = luz_com_previsao["KWH_DIA_PREVISTO"].round(2)
+
+        # Adicionar coluna de rótulo de mês/ano para exibição
+        luz_com_previsao["MES_STR"] = luz_com_previsao["MES"].dt.strftime("%b/%y")
+        
+        return luz_com_previsao
 
     def cartao_df_transformation(self) -> pd.DataFrame:
         cartao = self.get_dataframes('Credit Card')
@@ -279,7 +330,7 @@ if __name__ == "__main__":
 
     plans = GoogleFinance(sheet_dict=sheet_dict)
     #dre = plans.dre_df_transformation()
-    atv = plans.ativos_df_transformation()
-    print(atv.columns)
-    # luz = plans.luz_df_transformation()
-    # print(luz)
+    # atv = plans.ativos_df_transformation()
+    # print(atv.columns)
+    luz = plans.luz_df_transformation()
+    print(luz)
