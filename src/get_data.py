@@ -31,21 +31,23 @@ class GoogleFinance:
             print("Worksheet not found or name has changed")
         return gc
 
-    def get_dataframes(self):
+    def get_dataframes(self, plan_name:str):
         con = self.connect_to_google()
-        self.df_dict = {}
-        # O método .items() do dicionário devolve cada par chave-valor na ordem em que os itens foram adicionados
-        # (ou seja, a mesma ordem em que você vê no dicionário)
-        for sheet_name, sheet_url in self.sheet_dict.items():
-            try:
-                link = con.open_by_url(sheet_url).worksheet(sheet_name)
+        try:
+            # Verifica se a planilha está no dicionário
+            if plan_name in self.sheet_dict:
+                # Pega a URL da planilha específica
+                sheet_url = self.sheet_dict[plan_name]
+                # Acessa a planilha e transforma em DataFrame
+                link = con.open_by_url(sheet_url).worksheet(plan_name)
                 df = pd.DataFrame(link.get_all_values())
-
-                # armazena o DataFrame df no dicionário dataframes usando sheet_name como a chave
-                self.df_dict[sheet_name] = df
-            except Exception as e:
-                print(f"Error fetching {sheet_name}: {e}")
-        return self.df_dict
+                return df
+            else:
+                print(f"Planilha '{plan_name}' não encontrada no dicionário.")
+                return None
+        except Exception as e:
+            print(f"Erro ao buscar '{plan_name}': {e}")
+            return None
 
     def clean_months(self, dataframe: pd.DataFrame, column_name: str) -> pd.DataFrame:
         df = dataframe
@@ -80,8 +82,7 @@ class GoogleFinance:
         return df
 
     def dre_df_transformation(self) -> pd.DataFrame:
-        dfs = self.get_dataframes()
-        dre = dfs.pop("DRE TT")
+        dre = self.get_dataframes('DRE TT')
         headers = dre.iloc[3]
         headers.name = None
         dre = pd.DataFrame(dre.values[4:], columns=headers)
@@ -129,8 +130,7 @@ class GoogleFinance:
         return dre
 
     def ativos_df_transformation(self) -> pd.DataFrame:
-        dfs = self.get_dataframes()
-        ativos = dfs.pop("Ativos")
+        ativos = self.get_dataframes('Ativos')
         headers = ativos.iloc[5]
         headers.name = None
         ativos = pd.DataFrame(ativos.values[6:], columns=headers)
@@ -217,8 +217,7 @@ class GoogleFinance:
         return ativos
 
     def luz_df_transformation(self) -> pd.DataFrame:
-        dfs = self.get_dataframes()
-        luz = dfs.pop("Luz")
+        luz = self.get_dataframes('Luz')
         headers = luz.iloc[0]
         headers.name = None
         luz = pd.DataFrame(luz.values[1:], columns=headers)
@@ -239,12 +238,10 @@ class GoogleFinance:
                 else x
             )
         ).astype(float, errors="ignore")
-        luz["MES_STR"] = luz["MES"].dt.strftime("%b/%y")
         return luz
 
     def cartao_df_transformation(self) -> pd.DataFrame:
-        dfs = self.get_dataframes()
-        cartao = dfs.pop("Credit Card")
+        cartao = self.get_dataframes('Credit Card')
         headers = cartao.iloc[29]
         headers.name = None
         cartao = pd.DataFrame(cartao.values[30:], columns=headers)
