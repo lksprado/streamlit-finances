@@ -5,13 +5,13 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 import locale
 from datetime import datetime as dt
 
-import time
+
 import altair as alt
 import pandas as pd
 import streamlit as st
 
+
 from src.get_data import GoogleFinance
-from src.luz import make_luz
 
 st.set_page_config("FINANCES", layout="wide", page_icon="📊")
 st.header("FINANCES")
@@ -51,17 +51,14 @@ def filter_previous_month(dataframe: pd.DataFrame):
 # INSTANCIAR
 plans = get_plans()
 dre = plans.dre_df_transformation()
-time.sleep(2)
 ativos = plans.ativos_df_transformation()
-time.sleep(2)
 cartao = plans.cartao_df_transformation()
-time.sleep(2)
-luz = make_luz(sheet_dict)
-print(luz)
+luz = plans.luz_df_transformation()
+
 
 # GERAR DATAS
 dre_today = filter_latest_month(dre)
-print(dre_today)
+
 ativos_previous = filter_previous_month(ativos)
 actual_month = pd.to_datetime("today").to_period("M").start_time
 forward_month = actual_month + pd.DateOffset(months=1)
@@ -433,7 +430,7 @@ with gastos:
 
 patrimonio, investimentos_reserva, dif_rs = st.columns(3)
 
-print(ativos.columns)
+
 with patrimonio:
     ativos_filtered = ativos[(ativos["MES"] <= actual_month) & (ativos["MES"] >= twelve_month)]
     chart = (
@@ -621,9 +618,9 @@ with dif_rs:
 #     crum = ativos_charts(ativos,'% CRESCIMENTO REAL')
 #     st.altair_chart(crum, use_container_width=True)
 
-luzes,cc = st.columns(2)
+luz_fatura, luz_kwh = st.columns(2)
 
-with luzes:
+with luz_fatura:
     luz_filtered = luz[luz["MES"] >= twelve_month]
     chart = (
         alt.Chart(luz_filtered)
@@ -640,6 +637,7 @@ with luzes:
                     domain=True,
                     tickColor="gray",
                     domainColor="gray",
+                    labelAngle=0
                 ),
             ),
             y=alt.Y(
@@ -664,7 +662,87 @@ with luzes:
         )
         .properties(title="LUZ")
     )
+    text = chart.mark_text(
+        align="center",
+        baseline="bottom",
+        dy=0,
+        color=f"{color_red2}",
+        fontWeight="bold",
+        # fontSize=15,
+    ).encode(
+        text=alt.Text("Valor:Q", format=",.0f"),
+        color=alt.condition(
+            alt.datum.Categoria == "FATURA", 
+            alt.value("#fd3e81"),  # Cor do texto para "FATURA"
+            alt.value("#adb5bd")   # Cor do texto para "FATURA_PREVISTA"
+        )
+    )
+    # Combinar o gráfico com o texto
+    chart = chart + text
+    # st.altair_chart(chart, use_container_width=True)
+    st.altair_chart(chart, use_container_width=True)
+    
+with luz_kwh:
+    luz_filtered = luz[luz["MES"] >= twelve_month]
+    chart = (
+        alt.Chart(luz_filtered)
+        .transform_fold(["KWH DIA", "KWH_DIA_PREVISTO"], as_=["Categoria", "Valor"])
+        .mark_line()
+        .encode(
+            x=alt.X(
+                "MES_STR:N",
+                title=None,
+                sort=alt.SortField(field="date", order="ascending"),
+                axis=alt.Axis(
+                    ticks=True,
+                    grid=False,
+                    domain=True,
+                    tickColor="gray",
+                    domainColor="gray",
+                    labelAngle=0
+                ),
+            ),
+            y=alt.Y(
+                "Valor:Q",
+                title=None,
+                axis=alt.Axis(
+                    ticks=True,
+                    grid=False,
+                    domain=True,
+                    tickColor="gray",
+                    domainColor="gray",
+                ),
+            ),
+            color=alt.Color(
+                "Categoria:N",
+                scale=alt.Scale(
+                    domain=["KWH DIA", "KWH_DIA_PREVISTO"],
+                    range=["#fd3e81", "#adb5bd"],
+                ),
+                legend=None,
+            ),
+        )
+        .properties(title="LUZ")
+    )
+    text = chart.mark_text(
+        align="center",
+        baseline="bottom",
+        dy=-10,
+        color=f"{color_red2}",
+        fontWeight="bold",
+        # fontSize=15,
+    ).encode(
+        text=alt.Text("Valor:Q", format=",.1f"),
+        color=alt.condition(
+            alt.datum.Categoria == "KWH DIA", 
+            alt.value("#fd3e81"),  # Cor do texto para "FATURA"
+            alt.value("#adb5bd")   # Cor do texto para "FATURA_PREVISTA"
+        )
+    )
+    # Combinar o gráfico com o texto
+    chart = chart + text
+    # st.altair_chart(chart, use_container_width=True)
     st.altair_chart(chart, use_container_width=True)
 
-# with cc:
-#     card = make
+print(luz_filtered)
+
