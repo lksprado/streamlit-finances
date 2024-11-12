@@ -1,0 +1,11 @@
+secrets
+.venv
+
+.streamlit/secrets.toml
+.streamlit
+secrets.toml
+
+.env
+tests/
+
+poetry.lock

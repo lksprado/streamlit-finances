@@ -19,19 +19,11 @@ st.header("FINANCES")
 
 locale.setlocale(locale.LC_ALL, "pt_BR.UTF-8")
 
-## ENDERECO DE PLANILHAS ##########################################################################################################################################################
-sheet_dict = {
-    "DRE TT": "https://docs.google.com/spreadsheets/d/1AenV1BmOYwrO0GM_zv77xVcpGMHWg_ikXL-fnqpbpCA/edit?gid=885613319#gid=885613319",
-    "Ativos": "https://docs.google.com/spreadsheets/d/1AenV1BmOYwrO0GM_zv77xVcpGMHWg_ikXL-fnqpbpCA/edit?gid=2055342803#gid=2055342803",
-    "Luz": "https://docs.google.com/spreadsheets/d/1AenV1BmOYwrO0GM_zv77xVcpGMHWg_ikXL-fnqpbpCA/edit?gid=1179918927#gid=1179918927",
-    "Credit Card": "https://docs.google.com/spreadsheets/d/1AenV1BmOYwrO0GM_zv77xVcpGMHWg_ikXL-fnqpbpCA/edit?gid=1853911625#gid=1853911625",
-}
-
 ## OBTER DADOS DE PLANILHAS ##########################################################################################################################################################
 # @st.cache_data
 # @st.cache_resource
 def get_plans():
-    plans = GoogleFinance(sheet_dict=sheet_dict)
+    plans = GoogleFinance()
     return plans
 
 ## FILTROS DE MES PARA BIG NUMBERS ##########################################################################################################################################################

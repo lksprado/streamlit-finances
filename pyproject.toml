@@ -1,0 +1,15 @@
+[tool.poetry]
+name = "streamlit-finances"
+version = "0.1.0"
+description = ""
+authors = ["lksprado <lks-prado@live.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+st-gsheets-connection = "^0.1.0"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
