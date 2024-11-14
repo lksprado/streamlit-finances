@@ -6,7 +6,9 @@ import pandas as pd
 from statsmodels.tsa.holtwinters import ExponentialSmoothing
 
 from src.get_data import GoogleFinance
-pd.set_option('display.max_columns', None)
+
+pd.set_option("display.max_columns", None)
+
 
 def make_luz(sheets: dict) -> pd.DataFrame:
     s = sheets

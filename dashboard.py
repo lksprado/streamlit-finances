@@ -1,38 +1,46 @@
 import os
 import sys
+
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 import locale
 from datetime import datetime as dt
+
 import altair as alt
 import pandas as pd
 import streamlit as st
+
 from src.get_data import GoogleFinance
 
+pd.set_option("display.max_columns", None)
+pd.set_option("display.max_rows", None)
 
-pd.set_option('display.max_columns', None)
-pd.set_option('display.max_rows', None)
-
-## CONFIGURACOES INICIAIS ##########################################################################################################################################################
+##################################################################################################################################
+## CONFIGURACOES INICIAIS ########################################################################################################
 st.set_page_config("FINANCES", layout="wide", page_icon="📊")
 st.header("FINANCES")
 
 locale.setlocale(locale.LC_ALL, "pt_BR.UTF-8")
 
-## OBTER DADOS DE PLANILHAS ##########################################################################################################################################################
+
+##################################################################################################################################
+## OBTER DADOS DE PLANILHAS ######################################################################################################
 # @st.cache_data
 # @st.cache_resource
 def get_plans():
     plans = GoogleFinance()
     return plans
 
-## FILTROS DE MES PARA BIG NUMBERS ##########################################################################################################################################################
+
+##################################################################################################################################
+## FILTROS DE MES PARA BIG NUMBERS ###############################################################################################
 def filter_latest_month(dataframe: pd.DataFrame):
     df = dataframe
     today = pd.to_datetime("today").to_period("M").start_time
     filtro = df["MES"] == today
     df = df.loc[filtro]
     return df
+
 
 def filter_previous_month(dataframe: pd.DataFrame):
     df = dataframe
@@ -42,30 +50,35 @@ def filter_previous_month(dataframe: pd.DataFrame):
     df = df.loc[filtro]
     return df
 
-## INSTANCIAR ##########################################################################################################################################################
+
+##################################################################################################################################
+## INSTANCIAR ####################################################################################################################
 plans = get_plans()
 dre = plans.dre_df_transformation()
 ativos = plans.ativos_df_transformation()
 cartao = plans.cartao_df_transformation()
 luz = plans.luz_df_transformation()
 
-
-## GERAR DATAS ##########################################################################################################################################################
+##################################################################################################################################
+## GERAR DATAS ###################################################################################################################
 dre_today = filter_latest_month(dre)
 ativos_previous = filter_previous_month(ativos)
 actual_month = pd.to_datetime("today").to_period("M").start_time
-previous_month = actual_month + pd.DateOffset(months=-1)
-forward_month = actual_month + pd.DateOffset(months=1)
-twelve_month = actual_month + pd.DateOffset(months=-11)
-thirth_month = actual_month + pd.DateOffset(months=-12)
-fourth_month = actual_month + pd.DateOffset(months=-13)
+previous_month = actual_month + pd.DateOffset(months=-1)  # mes anterior
+forward_month = actual_month + pd.DateOffset(months=1)  # mes posterior
+twelve_month = actual_month + pd.DateOffset(months=-11)  # 12 meses para tras
+thirth_month = actual_month + pd.DateOffset(months=-12)  # 13 meses para tras
+fourth_month = actual_month + pd.DateOffset(months=-13)  # 14 meses para tras
+fourth_month_forward = actual_month + pd.DateOffset(months=13)  # 14 meses para frente
 
-## CORES ##########################################################################################################################################################
+##################################################################################################################################
+## CORES #########################################################################################################################
 color_green = "#50fa7b"
 color_red = "#ff5e5b"
 stroke = 2.5
 
-## BIG NUMBERS ##########################################################################################################################################################
+##################################################################################################################################
+## BIG NUMBERS ###################################################################################################################
 data, bn_receita, bn_despesa, bn_dif, bn_pb, bn_pl, bn_carro = st.columns(7)
 
 with data:
@@ -108,7 +121,8 @@ with bn_carro:
     carro = carro.split(",")[0]
     st.metric("Carro", carro)
 
-## GRAFICOS RECEITA, DESPESA E RESULTADO ##########################################################################################################################################################
+##################################################################################################################################
+## GRAFICOS RECEITA, DESPESA E RESULTADO #########################################################################################
 rec_desp, econ, econ_perc = st.columns(3)
 
 with rec_desp:
@@ -138,12 +152,10 @@ with rec_desp:
                 "Valor:Q",
                 title=None,
                 axis=alt.Axis(
-                    #ticks=True,
                     grid=False,
                     domain=True,
-                    #tickColor="gray",
                     domainColor="gray",
-                    labels=False
+                    labels=False,
                 ),
             ),
             color=alt.Color(
@@ -160,22 +172,23 @@ with rec_desp:
     text = chart.mark_text(
         align="center",
         baseline="middle",
-        dy=-10,  # Ajuste de posição
+        dy=-10,
         fontWeight="bold",
     ).encode(
         text=alt.condition(
             alt.datum.Categoria == "RECEITA TOTAL",
             alt.Text("Valor_Formatado:N"),
-            alt.value("")
+            alt.value(""),
         ),
     )
-    # Combine o gráfico de linha com o texto
     chart = chart + text
     st.altair_chart(chart, use_container_width=True)
 
 with econ:
     dre_filtered = dre[(dre["MES"] <= actual_month) & (dre["MES"] >= twelve_month)]
-    dre_filtered['R$ Resultado'] = dre_filtered['RESULTADO'].apply(lambda x: f"{x:,.0f}".replace(",", "."))
+    dre_filtered["R$ Resultado"] = dre_filtered["RESULTADO"].apply(
+        lambda x: f"{x:,.0f}".replace(",", ".")
+    )
     chart = (
         alt.Chart(dre_filtered)
         .transform_calculate(color_value="if(datum.RESULTADO < 0, 0, 1)")
@@ -198,12 +211,12 @@ with econ:
                 "RESULTADO:Q",
                 title=None,
                 axis=alt.Axis(
-                    #ticks=True,
+                    # ticks=True,
                     grid=False,
                     domain=True,
-                    #tickColor="gray",
+                    # tickColor="gray",
                     domainColor="gray",
-                    labels=False
+                    labels=False,
                 ),
             ),
             color=alt.Color(
@@ -220,9 +233,7 @@ with econ:
     text = chart.mark_text(
         align="center",
         baseline="middle",
-        dy=alt.expr(
-            "datum.RESULTADO > 0 ? -10 : 10"  # Se o RESULTADO for positivo, coloca o rótulo acima (-10), senão abaixo (+10)
-        ),
+        dy=alt.expr("datum.RESULTADO > 0 ? -10 : 10"),
         # color="#1e6091",
         fontWeight="bold",
         # fontSize=15,
@@ -235,7 +246,9 @@ with econ_perc:
     dre_filtered["PERC_RESULTADO"] = (
         dre_filtered["RESULTADO"] / dre_filtered["RECEITA TOTAL"]
     )
-    dre_filtered['% Resultado'] = dre_filtered['PERC_RESULTADO'].apply(lambda x: f"{x:,.1%}".replace(".", ","))
+    dre_filtered["% Resultado"] = dre_filtered["PERC_RESULTADO"].apply(
+        lambda x: f"{x:,.1%}".replace(".", ",")
+    )
     chart = (
         alt.Chart(dre_filtered)
         .transform_calculate(color_value="if(datum.PERC_RESULTADO < 0, 0, 1)")
@@ -258,12 +271,10 @@ with econ_perc:
                 "PERC_RESULTADO:Q",
                 title=None,
                 axis=alt.Axis(
-                    #ticks=True,
                     grid=False,
                     domain=True,
-                    #tickColor="gray",
                     domainColor="gray",
-                    labels=False
+                    labels=False,
                 ),
             ),
             color=alt.Color(
@@ -280,23 +291,26 @@ with econ_perc:
     text = chart.mark_text(
         align="center",
         baseline="middle",
-        dy=alt.expr(
-            "datum.PERC_RESULTADO > 0 ? -10 : 10"  # Se o RESULTADO for positivo, coloca o rótulo acima (-10), senão abaixo (+10)
-        ),
-        # color="#1e6091",
+        dy=alt.expr("datum.PERC_RESULTADO > 0 ? -10 : 10"),
         fontWeight="bold",
-        # fontSize=15,
     ).encode(text=alt.Text("% Resultado:N"))
     chart = chart + text
     st.altair_chart(chart, use_container_width=True)
 
-# GRAFICOS DESPESAS ##########################################################################################################################################################
-def gastos_barchart(df: pd.DataFrame, col_name: str):
+
+##################################################################################################################################
+# GRAFICOS DESPESAS ##############################################################################################################
+def gastos_barchart(
+    df: pd.DataFrame, col_name: str, max_month, min_month, intervalo: str = "tras"
+):
     col = col_name
-    dre_filtered = df[
-        (df["MES"] <= forward_month) & (dre["MES"] >= thirth_month)
-    ]
-    dre_filtered[f'R$ {col}'] = dre_filtered[f'{col}'].apply(lambda x: f"{x:,.0f}".replace(",", "."))
+    if intervalo == "tras":
+        dre_filtered = df[(dre["MES"] <= max_month) & (df["MES"] >= min_month)]
+    else:
+        dre_filtered = df[(dre["MES"] >= max_month) & (df["MES"] <= min_month)]
+    dre_filtered[f"R$ {col}"] = dre_filtered[f"{col}"].apply(
+        lambda x: f"{x:,.0f}".replace(",", ".")
+    )
     chart = (
         alt.Chart(dre_filtered)
         .mark_bar(color=f"{color_red}")
@@ -311,17 +325,15 @@ def gastos_barchart(df: pd.DataFrame, col_name: str):
                     domain=True,
                     tickColor="gray",
                     domainColor="gray",
-                    labelAngle=0
+                    labelAngle=0,
                 ),
             ),
             y=alt.Y(
                 f"{col}:Q",
                 title=None,
                 axis=alt.Axis(
-                    #ticks=True,
                     grid=False,
                     domain=True,
-                    #tickColor="gray",
                     domainColor="gray",
                     labels=False,
                 ),
@@ -335,21 +347,20 @@ def gastos_barchart(df: pd.DataFrame, col_name: str):
         dy=0,
         color=f"{color_red}",
         fontWeight="bold",
-        # fontSize=15,
-    ).encode(text=alt.Text(f'R$ {col}:N'))
+    ).encode(text=alt.Text(f"R$ {col}:N"))
     chart = chart + text
     return chart
+
 
 total_hm = st.container()
 
 total_hm, gastos = st.columns([1, 2])
 
 with total_hm:
-    total = gastos_barchart(dre, "DESPESAS TOTAL")
+    total = gastos_barchart(dre, "DESPESAS TOTAL", forward_month, thirth_month)
     st.altair_chart(total, use_container_width=True)
 
     df_long = dre[(dre["MES"] <= actual_month) & (dre["MES"] >= thirth_month)]
-
     df_long = df_long.melt(
         id_vars=["MES", "MES_STR"],
         value_vars=[
@@ -366,11 +377,11 @@ with total_hm:
     )
 
     df_long = df_long.sort_values(by=["Categoria", "MES"])
-
     df_long["Var_perc"] = df_long.groupby(["Categoria"])["Valor"].pct_change()
+    df_long["% Variação"] = df_long["Var_perc"].apply(
+        lambda x: f"{x:,.1%}".replace(".", ",")
+    )
 
-    df_long['% Variação'] = df_long['Var_perc'].apply(lambda x: f"{x:,.1%}".replace(".", ","))
-    
     col_order = [
         "DESPESAS TOTAL",
         "MERCADO",
@@ -415,8 +426,7 @@ with total_hm:
     text = heatmap.mark_text(baseline="middle", fontWeight="bold").encode(
         text=alt.Text("% Variação:N"),
         color=alt.condition(
-            (alt.datum.Var_perc >= 0.4)
-            | (alt.datum.Var_perc <= -0.4),
+            (alt.datum.Var_perc >= 0.4) | (alt.datum.Var_perc <= -0.4),
             alt.value("white"),
             alt.value("black"),
         ),
@@ -427,39 +437,43 @@ with total_hm:
 with gastos:
     mercado, diversos, assinaturas = st.columns(3)
     with mercado:
-        mercado = gastos_barchart(dre, "MERCADO")
+        mercado = gastos_barchart(dre, "MERCADO", forward_month, thirth_month)
         st.altair_chart(mercado, use_container_width=True)
 
     with diversos:
-        mercado = gastos_barchart(dre, "DIVERSOS")
+        mercado = gastos_barchart(dre, "DIVERSOS", forward_month, thirth_month)
         st.altair_chart(mercado, use_container_width=True)
 
     with assinaturas:
-        mercado = gastos_barchart(dre, "ASSINATURAS")
+        mercado = gastos_barchart(dre, "ASSINATURAS", forward_month, thirth_month)
         st.altair_chart(mercado, use_container_width=True)
 
     role, transporte, apartamento = st.columns(3)
 
     with role:
-        mercado = gastos_barchart(dre, "ROLE")
+        mercado = gastos_barchart(dre, "ROLE", forward_month, thirth_month)
         st.altair_chart(mercado, use_container_width=True)
 
     with transporte:
-        mercado = gastos_barchart(dre, "TRANSPORTE")
+        mercado = gastos_barchart(dre, "TRANSPORTE", forward_month, thirth_month)
         st.altair_chart(mercado, use_container_width=True)
     with apartamento:
-        mercado = gastos_barchart(dre, "APARTAMENTO")
+        mercado = gastos_barchart(dre, "APARTAMENTO", forward_month, thirth_month)
         st.altair_chart(mercado, use_container_width=True)
 
-## GRAFICOS DE PATRIMONIO  ##########################################################################################################################################################
+##################################################################################################################################
+## GRAFICOS DE PATRIMONIO  #######################################################################################################
 
 patrimonio, investimentos_reserva, dif_rs = st.columns(3)
 
 with patrimonio:
-    ativos_filtered = ativos[(ativos["MES"] <= actual_month) & (ativos["MES"] >= thirth_month)]
-    ativos_filtered['PATRIMONIO_BRUTO_FORMATADO'] = ativos_filtered['PATRIMONIO_BRUTO'].apply(lambda x: f"{x:,.0f}".replace(",", ".") if pd.notnull(x) else ""
-    )
-    print(ativos['PATRIMONIO_BRUTO'])
+    ativos_filtered = ativos[
+        (ativos["MES"] <= actual_month) & (ativos["MES"] >= thirth_month)
+    ]
+    ativos_filtered["PATRIMONIO_BRUTO_FORMATADO"] = ativos_filtered[
+        "PATRIMONIO_BRUTO"
+    ].apply(lambda x: f"{x:,.0f}".replace(",", ".") if pd.notnull(x) else "")
+    print(ativos["PATRIMONIO_BRUTO"])
     chart = (
         alt.Chart(ativos_filtered)
         .mark_bar(color="#00cecb")
@@ -474,17 +488,17 @@ with patrimonio:
                     domain=True,
                     tickColor="gray",
                     domainColor="gray",
-                    labelAngle=0
+                    labelAngle=0,
                 ),
             ),
             y=alt.Y(
                 "PATRIMONIO_BRUTO:Q",
                 title=None,
                 axis=alt.Axis(
-                    #ticks=True,
+                    # ticks=True,
                     grid=False,
                     domain=True,
-                    #tickColor="gray",
+                    # tickColor="gray",
                     domainColor="gray",
                     labels=False,
                 ),
@@ -498,8 +512,7 @@ with patrimonio:
         dy=0,
         color="#00cecb",
         fontWeight="bold",
-        # fontSize=15,
-    ).encode(text=alt.Text('PATRIMONIO_BRUTO_FORMATADO:N'))
+    ).encode(text=alt.Text("PATRIMONIO_BRUTO_FORMATADO:N"))
     chart = chart + text
     st.altair_chart(chart, use_container_width=True)
 
@@ -508,7 +521,7 @@ def ativos_charts(df: pd.DataFrame, col_name: str):
     col = col_name
     chart = (
         alt.Chart(ativos_filtered)
-        .mark_line(color = '#1dd3b0', strokeWidth=4)
+        .mark_line(color="#1dd3b0", strokeWidth=4)
         .encode(
             x=alt.X(
                 "MES_STR:N",
@@ -520,7 +533,7 @@ def ativos_charts(df: pd.DataFrame, col_name: str):
                     domain=True,
                     tickColor="gray",
                     domainColor="gray",
-                    labelAngle=0
+                    labelAngle=0,
                 ),
             ),
             y=alt.Y(
@@ -539,6 +552,7 @@ def ativos_charts(df: pd.DataFrame, col_name: str):
     )
     return chart
 
+
 with investimentos_reserva:
     chart = (
         alt.Chart(ativos_filtered)
@@ -555,7 +569,7 @@ with investimentos_reserva:
                     domain=True,
                     tickColor="gray",
                     domainColor="gray",
-                    labelAngle=0
+                    labelAngle=0,
                 ),
             ),
             y=alt.Y(
@@ -575,18 +589,24 @@ with investimentos_reserva:
                     domain=["INVESTIMENTO", "RESERVAS"],
                     range=["#1dd3b0", "#086375"],
                 ),
-                legend=alt.Legend(direction='vertical', columns = 1, title=None, orient='none',legendX=0, legendY=-10),
+                legend=alt.Legend(
+                    direction="vertical",
+                    columns=1,
+                    title=None,
+                    orient="none",
+                    legendX=0,
+                    legendY=-10,
+                ),
             ),
         )
         .properties(title="INVESTIMENTOS x RESERVAS")
-        )
-
-    # Adiciona o texto ao gráfico
-
+    )
     st.altair_chart(chart, use_container_width=True)
 
 with dif_rs:
-    ativos_filtered = ativos[(ativos["MES"] <= actual_month) & (ativos["MES"] >= twelve_month)]
+    ativos_filtered = ativos[
+        (ativos["MES"] <= actual_month) & (ativos["MES"] >= twelve_month)
+    ]
     chart = (
         alt.Chart(ativos_filtered)
         .transform_calculate(color_value="if(datum.DIF_PATRIMONIO < 0, 0, 1)")
@@ -630,9 +650,7 @@ with dif_rs:
     text = chart.mark_text(
         align="center",
         baseline="middle",
-        dy=alt.expr(
-            "datum.DIF_PATRIMONIO > 0 ? -10 : 10"
-        ),
+        dy=alt.expr("datum.DIF_PATRIMONIO > 0 ? -10 : 10"),
         # color="#1e6091",
         fontWeight="bold",
         # fontSize=15,
@@ -640,15 +658,8 @@ with dif_rs:
     chart = chart + text
     st.altair_chart(chart, use_container_width=True)
 
-# with cresc_real:
-#     cr = ativos_charts(ativos,'% CRESCIMENTO REAL')
-#     st.altair_chart(cr, use_container_width=True)
-
-# with cresc_real_acum:
-#     crum = ativos_charts(ativos,'% CRESCIMENTO REAL')
-#     st.altair_chart(crum, use_container_width=True)
-
-## GRAFICOS DA CONTA DE LUZ  ##########################################################################################################################################################
+##################################################################################################################################
+## GRAFICOS DA CONTA DE LUZ  #####################################################################################################
 luz_fatura, luz_kwh, preco_kwh = st.columns(3)
 
 with luz_fatura:
@@ -668,7 +679,7 @@ with luz_fatura:
                     domain=True,
                     tickColor="gray",
                     domainColor="gray",
-                    labelAngle=0
+                    labelAngle=0,
                 ),
             ),
             y=alt.Y(
@@ -703,14 +714,14 @@ with luz_fatura:
     ).encode(
         text=alt.Text("Valor:Q", format=",.0f"),
         color=alt.condition(
-            alt.datum.Categoria == "FATURA DA CONTA DE LUZ", 
+            alt.datum.Categoria == "FATURA DA CONTA DE LUZ",
             alt.value("#fd3e81"),
-            alt.value("#adb5bd")
-        )
+            alt.value("#adb5bd"),
+        ),
     )
     chart = chart + text
     st.altair_chart(chart, use_container_width=True)
-    
+
 with luz_kwh:
     luz_filtered = luz[luz["MES"] >= twelve_month]
     chart = (
@@ -728,7 +739,7 @@ with luz_kwh:
                     domain=True,
                     tickColor="gray",
                     domainColor="gray",
-                    labelAngle=0
+                    labelAngle=0,
                 ),
             ),
             y=alt.Y(
@@ -763,10 +774,8 @@ with luz_kwh:
     ).encode(
         text=alt.Text("Valor:Q", format=",.1f"),
         color=alt.condition(
-            alt.datum.Categoria == "KWH DIA", 
-            alt.value("#fd3e81"),
-            alt.value("#adb5bd")
-        )
+            alt.datum.Categoria == "KWH DIA", alt.value("#fd3e81"), alt.value("#adb5bd")
+        ),
     )
     chart = chart + text
     st.altair_chart(chart, use_container_width=True)
@@ -775,7 +784,7 @@ with preco_kwh:
     luz_filtered = luz[(luz["MES"] <= actual_month) & (luz["MES"] >= twelve_month)]
     chart = (
         alt.Chart(luz_filtered)
-        .mark_line(color='#fd3e81')
+        .mark_line(color="#fd3e81")
         .encode(
             x=alt.X(
                 "MES_STR:N",
@@ -787,7 +796,7 @@ with preco_kwh:
                     domain=True,
                     tickColor="gray",
                     domainColor="gray",
-                    labelAngle=0
+                    labelAngle=0,
                 ),
             ),
             y=alt.Y(
@@ -805,3 +814,397 @@ with preco_kwh:
         .properties(title="PREÇO KWH")
     )
     st.altair_chart(chart, use_container_width=True)
+
+##################################################################################################################################
+##################################################################################################################################
+################################################ ANALISES AVANÇADAS ##############################################################
+################################'##################################################################################################
+##################################################################################################################################
+
+st.divider()
+st.subheader("ANÁLISES AVANÇADAS")
+
+## GASTOS FUTUROS ################################################################################################################
+gastos_futuros_proporcao, gastos_futuros = st.columns(2)
+
+with gastos_futuros:
+    total_futuro = gastos_barchart(
+        dre, "DESPESAS TOTAL", forward_month, fourth_month_forward, "frente"
+    )
+    st.altair_chart(total_futuro, use_container_width=True)
+
+with gastos_futuros_proporcao:
+    dre_filtered = dre[
+        (dre["MES"] >= forward_month) & (dre["MES"] <= fourth_month_forward)
+    ]
+    df_long = dre_filtered.melt(
+        id_vars=["MES", "MES_STR"],
+        value_vars=[
+            "MERCADO",
+            "DIVERSOS",
+            "ASSINATURAS",
+            "ROLE",
+            "TRANSPORTE",
+            "APARTAMENTO",
+        ],
+        var_name="Categoria",
+        value_name="Valor",
+    )
+    df_long["Total_Mensal"] = df_long.groupby("MES")["Valor"].transform("sum")
+    df_long["Proporcao"] = df_long["Valor"] / df_long["Total_Mensal"]
+    chart = (
+        alt.Chart(df_long)
+        .mark_bar()
+        .transform_filter(alt.datum.Proporcao > 0)
+        .encode(
+            x=alt.X(
+                "Proporcao:Q",
+                title=None,
+                axis=alt.Axis(
+                    grid=False, domain=True, domainColor="gray", labels=False
+                ),
+            ).stack("normalize"),
+            y=alt.Y(
+                "MES_STR:N",
+                title=None,
+                sort=alt.SortField(field="date", order="ascending"),
+                axis=alt.Axis(grid=False, domain=True, domainColor="gray"),
+            ),
+            color=alt.Color(
+                field="Categoria",
+                type="nominal",
+                sort=alt.SortField(field="Proporcao:Q", order="descending"),
+                scale=alt.Scale(
+                    domain=[
+                        "MERCADO",
+                        "DIVERSOS",
+                        "ASSINATURAS",
+                        "ROLE",
+                        "TRANSPORTE",
+                        "APARTAMENTO",
+                    ],
+                    range=[
+                        "#e85d04",
+                        "#1982c4",
+                        "#ae8853",
+                        "#666666",
+                        "#3fae2a",
+                        "#9d4edd",
+                    ],
+                ),
+                legend=alt.Legend(
+                    orient="none",
+                    direction="horizontal",
+                    title=None,
+                    legendX=400,
+                    legendY=-50,
+                ),
+            ),
+            order=alt.Order("Proporcao:Q"),
+        )
+        .properties(title="% DISTRIBUIÇÃO DOS GASTOS FUTUROS", height=350)
+    )
+    text = (
+        alt.Chart(df_long)
+        .mark_text(
+            align="center",
+            baseline="middle",
+            fontWeight="bold",
+            color="white",
+            dx=-15,
+        )
+        .transform_filter(alt.datum.Proporcao > 0)
+        .encode(
+            x=alt.X("sum(Valor):Q").stack(
+                "normalize"
+            ),  # Mesmo empilhamento e agregação do gráfico de barras
+            y=alt.Y("MES_STR:N", sort=alt.SortField(field="date", order="ascending")),
+            detail="Categoria:N",  # Garante que o texto seja calculado por categoria
+            text=alt.Text("Proporcao:Q", format=".0%"),
+            order=alt.Order("Proporcao:Q"),  # Exibindo como porcentagem
+        )
+    )
+    chart = chart + text
+    st.altair_chart(chart, use_container_width=True)
+
+##################################################################################################################################
+## CRESCIMENTO ###################################################################################################################
+ativos_filtered = ativos[ativos["MES"] >= pd.to_datetime("2023-09-01")]
+
+curva_bruto, curva_liquido, usd = st.columns(3)
+
+with curva_bruto:
+    zero = (
+        alt.Chart(ativos_filtered)
+        .mark_rule()
+        .encode(
+            y=alt.datum(0),
+            size=alt.value(1),
+            color=alt.value("gray"),
+            strokeDash=alt.value([2, 1]),
+        )
+    )
+    chart = (
+        alt.Chart(ativos_filtered)
+        .transform_fold(
+            ["CURVA BRUTO", "CURVA LIQUIDO", "CURVA INFLACAO", "CURVA JUROS"],
+            as_=["Categoria", "Valor"],
+        )
+        .mark_line(strokeWidth=stroke)
+        .encode(
+            x=alt.X(
+                "MES_STR:N",
+                title=None,
+                sort=alt.SortField(field="date", order="ascending"),
+                axis=alt.Axis(
+                    ticks=True,
+                    grid=False,
+                    domain=True,
+                    tickColor="gray",
+                    domainColor="gray",
+                    labelAngle=0,
+                ),
+            ),
+            y=alt.Y(
+                "Valor:Q",
+                title=None,
+                axis=alt.Axis(
+                    grid=False, domain=True, domainColor="gray", labels=False
+                ),
+            ),
+            color=alt.Color(
+                "Categoria:N",
+                scale=alt.Scale(
+                    domain=["CURVA BRUTO", "CURVA INFLACAO", "CURVA JUROS"],
+                    range=["#00cecb", "#ff9e00", "#005073"],
+                ),
+                legend=alt.Legend(
+                    direction="vertical",
+                    columns=1,
+                    title=None,
+                    orient="none",
+                    legendX=0,
+                    legendY=-10,
+                ),
+            ),
+        )
+        .properties(title="CURVA PATRIMÔNIO BRUTO x IPCA x SELIC")
+    )
+    chart = chart + zero
+    st.altair_chart(chart, use_container_width=True)
+
+with curva_liquido:
+    chart = (
+        alt.Chart(ativos_filtered)
+        .transform_fold(
+            ["CURVA LIQUIDO", "CURVA INFLACAO", "CURVA JUROS"],
+            as_=["Categoria", "Valor"],
+        )
+        .mark_line(strokeWidth=stroke)
+        .encode(
+            x=alt.X(
+                "MES_STR:N",
+                title=None,
+                sort=alt.SortField(field="date", order="ascending"),
+                axis=alt.Axis(
+                    ticks=True,
+                    grid=False,
+                    domain=True,
+                    tickColor="gray",
+                    domainColor="gray",
+                    labelAngle=0,
+                ),
+            ),
+            y=alt.Y(
+                "Valor:Q",
+                title=None,
+                axis=alt.Axis(
+                    grid=False, domain=True, domainColor="gray", labels=False
+                ),
+            ),
+            color=alt.Color(
+                "Categoria:N",
+                scale=alt.Scale(
+                    domain=["CURVA LIQUIDO", "CURVA INFLACAO", "CURVA JUROS"],
+                    range=["#00cecb", "#ff9e00", "#005073"],
+                ),
+                legend=alt.Legend(
+                    direction="vertical",
+                    columns=1,
+                    title=None,
+                    orient="none",
+                    legendX=0,
+                    legendY=-10,
+                ),
+            ),
+        )
+        .properties(title="CURVA PATRIMÔNIO LÍQUIDO x IPCA x SELIC")
+    )
+    chart = chart + zero
+    st.altair_chart(chart, use_container_width=True)
+
+with usd:
+    ativos_filtered["usd_share"] = (
+        ativos_filtered["WISE"] + ativos_filtered["AVENUE"]
+    ) / ativos_filtered["PATRIMONIO_LIQUIDO"]
+    chart = (
+        alt.Chart(ativos_filtered)
+        .mark_line(strokeWidth=stroke, color="#00cecb")
+        .encode(
+            x=alt.X(
+                "MES_STR:N",
+                title=None,
+                sort=alt.SortField(field="date", order="ascending"),
+                axis=alt.Axis(
+                    ticks=True,
+                    grid=False,
+                    domain=True,
+                    tickColor="gray",
+                    domainColor="gray",
+                    labelAngle=0,
+                ),
+            ),
+            y=alt.Y(
+                "usd_share:Q",
+                title=None,
+                axis=alt.Axis(
+                    grid=False, domain=True, domainColor="gray", labels=False
+                ),
+            ),
+        )
+        .properties(title="% PATRIMÔNIO DOLARIZADO")
+    )
+    text = (
+        alt.Chart(ativos_filtered)
+        .mark_text(
+            align="center",
+            baseline="middle",
+            dy=-10,  # Ajusta a posição vertical do texto
+            color="#00cecb",  # Cor opcional do texto para visibilidade
+        )
+        .encode(
+            x=alt.X("MES_STR:N", sort=alt.SortField(field="date", order="ascending")),
+            y="usd_share:Q",
+            text=alt.Text(
+                "usd_share:Q", format=".1%"
+            ),  # Formata como percentual com uma casa decimal
+        )
+    )
+    chart = chart + text
+    st.altair_chart(chart, use_container_width=True)
+
+consumo_kwh, preco_kwh = st.columns(2)
+
+with consumo_kwh:
+    chart = (
+        alt.Chart(luz)
+        .mark_line(color="#fd3e81")
+        .encode(
+            x=alt.X(
+                "MES_STR:N",
+                title=None,
+                sort=alt.SortField(field="date", order="ascending"),
+                axis=alt.Axis(
+                    ticks=True,
+                    grid=False,
+                    domain=True,
+                    tickColor="gray",
+                    domainColor="gray",
+                    labelAngle=0,
+                ),
+            ),
+            y=alt.Y(
+                "KWH DIA:Q",
+                title=None,
+                axis=alt.Axis(
+                    ticks=True,
+                    grid=False,
+                    domain=True,
+                    tickColor="gray",
+                    domainColor="gray",
+                ),
+            ),
+        )
+        .properties(title="CONSUMO KWH HISTÓRICO")
+    )
+    st.altair_chart(chart, use_container_width=True)
+
+with preco_kwh:
+    chart = (
+        alt.Chart(luz)
+        .mark_line(color="#fd3e81")
+        .encode(
+            x=alt.X(
+                "MES_STR:N",
+                title=None,
+                sort=alt.SortField(field="date", order="ascending"),
+                axis=alt.Axis(
+                    ticks=True,
+                    grid=False,
+                    domain=True,
+                    tickColor="gray",
+                    domainColor="gray",
+                    labelAngle=0,
+                ),
+            ),
+            y=alt.Y(
+                "PRECO KWH:Q",
+                title=None,
+                axis=alt.Axis(
+                    ticks=True,
+                    grid=False,
+                    domain=True,
+                    tickColor="gray",
+                    domainColor="gray",
+                ),
+            ),
+        )
+        .properties(title="CUSTO KWH HISTÓRICO")
+    )
+    st.altair_chart(chart, use_container_width=True)
+
+
+cartao["% RENDA"] = cartao["% RENDA"] / 100
+chart = (
+    alt.Chart(cartao)
+    .mark_line(strokeWidth=stroke, color=color_red)
+    .encode(
+        x=alt.X(
+            "MES_STR:N",
+            title=None,
+            sort=alt.SortField(field="date", order="ascending"),
+            axis=alt.Axis(
+                ticks=True,
+                grid=False,
+                domain=True,
+                tickColor="gray",
+                domainColor="gray",
+                labelAngle=0,
+            ),
+        ),
+        y=alt.Y(
+            "% RENDA:Q",
+            title=None,
+            axis=alt.Axis(grid=False, domain=True, domainColor="gray", labels=False),
+        ),
+    )
+    .properties(title="% RENDA COM CARTAO DE CREDITO")
+)
+text = (
+    alt.Chart(cartao)
+    .mark_text(
+        align="center",
+        baseline="middle",
+        dy=-10,  # Ajusta a posição vertical do texto
+        color=color_red,  # Cor opcional do texto para visibilidade
+    )
+    .encode(
+        x=alt.X("MES_STR:N", sort=alt.SortField(field="date", order="ascending")),
+        y="% RENDA:Q",
+        text=alt.Text(
+            "% RENDA:Q", format=".1%"
+        ),  # Formata como percentual com uma casa decimal
+    )
+)
+chart = chart + text
+st.altair_chart(chart, use_container_width=True)

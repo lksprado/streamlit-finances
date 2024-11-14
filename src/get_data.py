@@ -12,11 +12,12 @@ locale.setlocale(locale.LC_ALL, "pt_BR.UTF-8")
 load_dotenv()
 pd.set_option("display.max_columns", None)
 
+
 class GoogleFinance:
     def __init__(self):
         self.credentials = os.getenv("CREDENTIALS")
         self.df_dict = None
-        self.gc = self.connect_to_google() # conexão é criada uma única vez
+        self.gc = self.connect_to_google()  # conexão é criada uma única vez
         self.sheet_dict = {
             "DRE TT": os.getenv("URL_DRE_TT"),
             "Ativos": os.getenv("URL_ATIVOS"),
@@ -33,7 +34,6 @@ class GoogleFinance:
             print(f"Credential file not found: {e}")
         except Exception as e:
             print(f"Worksheet not found or name has changed: {e}")
-        
 
     def get_dataframes(self, plan_name: str):
         con = self.gc
@@ -137,7 +137,7 @@ class GoogleFinance:
             )
         ).astype(float, errors="ignore")
         dre["MES_STR"] = dre["MES"].dt.strftime("%b/%y")
-        
+
         return dre
 
     def ativos_df_transformation(self) -> pd.DataFrame:
