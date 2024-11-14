@@ -319,7 +319,7 @@ class GoogleFinance:
 
         return luz_com_previsao
 
-    def cartao_df_transformation(self) -> pd.DataFrame:
+
         cartao = self.get_dataframes("Credit Card")
         if cartao is None or cartao.empty:
             erro = print("Erro: Credit Card DataFrame não carregado ou está vazio")
@@ -354,7 +354,6 @@ class GoogleFinance:
 if __name__ == "__main__":
     plans = GoogleFinance()
     dre = plans.dre_df_transformation()
-    print(dre)
     # atv = plans.ativos_df_transformation()
     # print(atv)
     # print(atv.tail())
@@ -364,3 +363,5 @@ if __name__ == "__main__":
     # print(luz.dtypes)
     # atv.to_csv("atv.csv", sep=';', index=False)
     # dre.to_csv("dre.csv", sep=';', index=False)
+    cartao = plans.cartao_df_transformation()
+    print(cartao)

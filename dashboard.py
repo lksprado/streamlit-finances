@@ -1,15 +1,11 @@
 import os
 import sys
-
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-
 import locale
-from datetime import datetime as dt
-
 import altair as alt
 import pandas as pd
 import streamlit as st
-
+from datetime import datetime as dt
 from src.get_data import GoogleFinance
 
 pd.set_option("display.max_columns", None)
@@ -21,7 +17,6 @@ st.set_page_config("FINANCES", layout="wide", page_icon="📊")
 st.header("FINANCES")
 
 locale.setlocale(locale.LC_ALL, "pt_BR.UTF-8")
-
 
 ##################################################################################################################################
 ## OBTER DADOS DE PLANILHAS ######################################################################################################
@@ -56,7 +51,6 @@ def filter_previous_month(dataframe: pd.DataFrame):
 plans = get_plans()
 dre = plans.dre_df_transformation()
 ativos = plans.ativos_df_transformation()
-cartao = plans.cartao_df_transformation()
 luz = plans.luz_df_transformation()
 
 ##################################################################################################################################
@@ -79,7 +73,7 @@ stroke = 2.5
 
 ##################################################################################################################################
 ## BIG NUMBERS ###################################################################################################################
-data, bn_receita, bn_despesa, bn_dif, bn_pb, bn_pl, bn_carro = st.columns(7)
+data, bn_receita, bn_despesa, bn_dif, bn_meta, bn_pb, bn_pl, bn_carro = st.columns(8)
 
 with data:
     mes = dre_today["MES_STR"].iloc[0]
@@ -102,6 +96,11 @@ with bn_dif:
     dif = locale.currency(dif, grouping=True)
     dif = dif.split(",")[0]
     st.metric("Resultado", dif)
+
+with bn_meta:
+    dre_today['% Meta'] = (dre_today["DESPESAS TOTAL"]/10000) 
+    meta_formatted = "{:.0%}".format(dre_today['% Meta'].iloc[0])
+    st.metric("% Meta", meta_formatted)
 
 with bn_pb:
     patri_total = float(ativos_previous["PATRIMONIO_BRUTO"])
@@ -166,8 +165,13 @@ with rec_desp:
                 ),
                 legend=None,
             ),
+            tooltip=[
+                alt.Tooltip("MES_STR:N", title="MÊS"),
+                alt.Tooltip("Categoria:N", title="LINHA"),
+                alt.Tooltip("Valor_Formatado:N", title="R$ VALOR")
+            ]
         )
-        .properties(title="RECEITA vs DESPESA")
+        .properties(title="R$ RECEITA x DESPESA")
     )
     text = chart.mark_text(
         align="center",
@@ -186,7 +190,7 @@ with rec_desp:
 
 with econ:
     dre_filtered = dre[(dre["MES"] <= actual_month) & (dre["MES"] >= twelve_month)]
-    dre_filtered["R$ Resultado"] = dre_filtered["RESULTADO"].apply(
+    dre_filtered["Valor_Formatado"] = dre_filtered["RESULTADO"].apply(
         lambda x: f"{x:,.0f}".replace(",", ".")
     )
     chart = (
@@ -227,8 +231,12 @@ with econ:
                 ),
                 legend=None,
             ),
+            tooltip=[
+                alt.Tooltip("MES_STR:N", title="MÊS"),
+                alt.Tooltip("Valor_Formatado:N", title="R$ RESULTADO")
+            ]
         )
-        .properties(title="RESULTADO")
+        .properties(title="R$ RESULTADO")
     )
     text = chart.mark_text(
         align="center",
@@ -237,7 +245,7 @@ with econ:
         # color="#1e6091",
         fontWeight="bold",
         # fontSize=15,
-    ).encode(text=alt.Text("R$ Resultado:N"))
+    ).encode(text=alt.Text("Valor_Formatado:N"))
     chart = chart + text
     st.altair_chart(chart, use_container_width=True)
 
@@ -246,7 +254,7 @@ with econ_perc:
     dre_filtered["PERC_RESULTADO"] = (
         dre_filtered["RESULTADO"] / dre_filtered["RECEITA TOTAL"]
     )
-    dre_filtered["% Resultado"] = dre_filtered["PERC_RESULTADO"].apply(
+    dre_filtered["Valor_Formatado"] = dre_filtered["PERC_RESULTADO"].apply(
         lambda x: f"{x:,.1%}".replace(".", ",")
     )
     chart = (
@@ -285,6 +293,10 @@ with econ_perc:
                 ),
                 legend=None,
             ),
+        tooltip=[
+            alt.Tooltip("MES_STR:N", title="MÊS"),
+            alt.Tooltip("Valor_Formatado:N", title="% RESULTADO"), # Tooltip com o total
+        ]
         )
         .properties(title="% RESULTADO")
     )
@@ -293,7 +305,7 @@ with econ_perc:
         baseline="middle",
         dy=alt.expr("datum.PERC_RESULTADO > 0 ? -10 : 10"),
         fontWeight="bold",
-    ).encode(text=alt.Text("% Resultado:N"))
+    ).encode(text=alt.Text("Valor_Formatado:N"))
     chart = chart + text
     st.altair_chart(chart, use_container_width=True)
 
@@ -301,13 +313,13 @@ with econ_perc:
 ##################################################################################################################################
 # GRAFICOS DESPESAS ##############################################################################################################
 def gastos_barchart(
-    df: pd.DataFrame, col_name: str, max_month, min_month, intervalo: str = "tras"
-):
+    df: pd.DataFrame, col_name: str, max_month, min_month, intervalo: str = "tras"):
     col = col_name
     if intervalo == "tras":
         dre_filtered = df[(dre["MES"] <= max_month) & (df["MES"] >= min_month)]
     else:
         dre_filtered = df[(dre["MES"] >= max_month) & (df["MES"] <= min_month)]
+    
     dre_filtered[f"R$ {col}"] = dre_filtered[f"{col}"].apply(
         lambda x: f"{x:,.0f}".replace(",", ".")
     )
@@ -338,6 +350,10 @@ def gastos_barchart(
                     labels=False,
                 ),
             ),
+            tooltip=[
+                alt.Tooltip("MES_STR:N", title="MÊS"),
+                alt.Tooltip(f"R$ {col}:N", title=f"{col}")
+            ]
         )
         .properties(title=f"R$ {col}")
     )
@@ -378,7 +394,7 @@ with total_hm:
 
     df_long = df_long.sort_values(by=["Categoria", "MES"])
     df_long["Var_perc"] = df_long.groupby(["Categoria"])["Valor"].pct_change()
-    df_long["% Variação"] = df_long["Var_perc"].apply(
+    df_long["Valor_formatado"] = df_long["Var_perc"].apply(
         lambda x: f"{x:,.1%}".replace(".", ",")
     )
 
@@ -418,13 +434,17 @@ with total_hm:
                 title=None,
                 legend=None,
             ),
-            tooltip=["MES_STR:N", "Categoria:N", "Var_perc:Q"],
+            tooltip=[
+                alt.Tooltip("MES_STR:N", title="MÊS"),
+                alt.Tooltip("Categoria:N", title="CATEGORIA"),
+                alt.Tooltip("Valor_formatado:N", title="% TOTAL")
+            ]
         )
         .properties(title="% VARIAÇÃO MENSAL DOS GASTOS", height=350)
     )
 
     text = heatmap.mark_text(baseline="middle", fontWeight="bold").encode(
-        text=alt.Text("% Variação:N"),
+        text=alt.Text("Valor_formatado:N"),
         color=alt.condition(
             (alt.datum.Var_perc >= 0.4) | (alt.datum.Var_perc <= -0.4),
             alt.value("white"),
@@ -470,10 +490,9 @@ with patrimonio:
     ativos_filtered = ativos[
         (ativos["MES"] <= actual_month) & (ativos["MES"] >= thirth_month)
     ]
-    ativos_filtered["PATRIMONIO_BRUTO_FORMATADO"] = ativos_filtered[
+    ativos_filtered["Valor_formatado"] = ativos_filtered[
         "PATRIMONIO_BRUTO"
     ].apply(lambda x: f"{x:,.0f}".replace(",", ".") if pd.notnull(x) else "")
-    print(ativos["PATRIMONIO_BRUTO"])
     chart = (
         alt.Chart(ativos_filtered)
         .mark_bar(color="#00cecb")
@@ -503,8 +522,12 @@ with patrimonio:
                     labels=False,
                 ),
             ),
+            tooltip=[
+                alt.Tooltip("MES_STR:N", title="MÊS"),
+                alt.Tooltip("Valor_formatado:N", title="R$ PATRIMÔNIO BRUTO")
+            ]
         )
-        .properties(title=f"R$ PATRIMONIO_BRUTO")
+        .properties(title=f"R$ PATRIMONIO BRUTO")
     )
     text = chart.mark_text(
         align="center",
@@ -512,52 +535,35 @@ with patrimonio:
         dy=0,
         color="#00cecb",
         fontWeight="bold",
-    ).encode(text=alt.Text("PATRIMONIO_BRUTO_FORMATADO:N"))
+    ).encode(text=alt.Text("Valor_formatado:N"))
     chart = chart + text
     st.altair_chart(chart, use_container_width=True)
 
-
-def ativos_charts(df: pd.DataFrame, col_name: str):
-    col = col_name
-    chart = (
-        alt.Chart(ativos_filtered)
-        .mark_line(color="#1dd3b0", strokeWidth=4)
-        .encode(
-            x=alt.X(
-                "MES_STR:N",
-                title=None,
-                sort=alt.SortField(field="date", order="ascending"),
-                axis=alt.Axis(
-                    ticks=True,
-                    grid=False,
-                    domain=True,
-                    tickColor="gray",
-                    domainColor="gray",
-                    labelAngle=0,
-                ),
-            ),
-            y=alt.Y(
-                f"{col}:Q",
-                title=None,
-                axis=alt.Axis(
-                    ticks=True,
-                    grid=False,
-                    domain=True,
-                    tickColor="gray",
-                    domainColor="gray",
-                ),
-            ),
-        )
-        .properties(title=f"{col}")
-    )
-    return chart
-
-
 with investimentos_reserva:
+    # Formatação dos valores em texto formatado
+    ativos_filtered["INVESTIMENTO_FORMATADO"] = ativos_filtered[
+        "INVESTIMENTO"
+    ].apply(lambda x: f"{x:,.0f}".replace(",", ".") if pd.notnull(x) else "")
+    ativos_filtered["RESERVAS_FORMATADO"] = ativos_filtered[
+        "RESERVAS"
+    ].apply(lambda x: f"{x:,.0f}".replace(",", ".") if pd.notnull(x) else "")
+
+    # Combinação das colunas formatadas para exibição dinâmica com Altair
+    ativos_filtered = ativos_filtered.melt(
+        id_vars=["MES_STR", "INVESTIMENTO_FORMATADO", "RESERVAS_FORMATADO"],
+        value_vars=["INVESTIMENTO", "RESERVAS"],
+        var_name="Categoria",
+        value_name="Valor"
+    )
+    ativos_filtered["Valor_Formatado"] = ativos_filtered.apply(
+        lambda row: row["INVESTIMENTO_FORMATADO"] if row["Categoria"] == "INVESTIMENTO" else row["RESERVAS_FORMATADO"],
+        axis=1
+    )
+
+    # Gráfico principal com linhas
     chart = (
         alt.Chart(ativos_filtered)
-        .transform_fold(["INVESTIMENTO", "RESERVAS"], as_=["Categoria", "Valor"])
-        .mark_bar(strokeWidth=4)
+        .mark_line(strokeWidth=stroke)
         .encode(
             x=alt.X(
                 "MES_STR:N",
@@ -569,18 +575,19 @@ with investimentos_reserva:
                     domain=True,
                     tickColor="gray",
                     domainColor="gray",
-                    labelAngle=0,
+                    labelAngle=0
                 ),
             ),
             y=alt.Y(
                 "Valor:Q",
                 title=None,
                 axis=alt.Axis(
-                    ticks=True,
+                    ticks=False,
                     grid=False,
                     domain=True,
                     tickColor="gray",
                     domainColor="gray",
+                    labels=False
                 ),
             ),
             color=alt.Color(
@@ -589,24 +596,45 @@ with investimentos_reserva:
                     domain=["INVESTIMENTO", "RESERVAS"],
                     range=["#1dd3b0", "#086375"],
                 ),
-                legend=alt.Legend(
-                    direction="vertical",
-                    columns=1,
-                    title=None,
-                    orient="none",
-                    legendX=0,
-                    legendY=-10,
-                ),
+                legend=alt.Legend(direction='vertical', columns=1, title=None, orient='none', legendX=0, legendY=-10),
             ),
+            tooltip=[
+                alt.Tooltip("MES_STR:N", title="MÊS"),
+                alt.Tooltip("Categoria:N", title="LINHA"),
+                alt.Tooltip("Valor_Formatado:N", title="VALOR")
+            ]
         )
-        .properties(title="INVESTIMENTOS x RESERVAS")
+        .properties(title="R$ INVESTIMENTOS x RESERVAS")
     )
+
+    # Adicionar o texto formatado acima ou abaixo da linha
+    text = (
+        alt.Chart(ativos_filtered)
+        .mark_text(dy=alt.ExprRef("datum.Categoria === 'RESERVAS' ? -10 : 10"), fontWeight="bold",)
+        .encode(
+            x=alt.X("MES_STR:N", sort=alt.SortField(field="date", order="ascending")),
+            y=alt.Y("Valor:Q"),
+            text=alt.Text("Valor_Formatado:N"),
+            color=alt.Color("Categoria:N", scale=alt.Scale(domain=["INVESTIMENTO", "RESERVAS"], range=["#1dd3b0", "#086375"])),
+            tooltip=[
+                alt.Tooltip("MES_STR:N", title="MÊS"),
+                alt.Tooltip("Categoria:N", title="LINHA"),
+                alt.Tooltip("Valor_Formatado:N", title="VALOR")
+            ]
+        )
+    )
+
+    # Combinar o gráfico principal com os rótulos de texto
+    chart = chart + text
     st.altair_chart(chart, use_container_width=True)
 
 with dif_rs:
     ativos_filtered = ativos[
         (ativos["MES"] <= actual_month) & (ativos["MES"] >= twelve_month)
     ]
+    ativos_filtered["Valor_formatado"] = ativos_filtered[
+        "DIF_PATRIMONIO"
+    ].apply(lambda x: f"{x:,.0f}".replace(",", ".") if pd.notnull(x) else "")
     chart = (
         alt.Chart(ativos_filtered)
         .transform_calculate(color_value="if(datum.DIF_PATRIMONIO < 0, 0, 1)")
@@ -629,11 +657,12 @@ with dif_rs:
                 "DIF_PATRIMONIO:Q",
                 title=None,
                 axis=alt.Axis(
-                    ticks=True,
+                    ticks=False,
                     grid=False,
                     domain=True,
                     tickColor="gray",
                     domainColor="gray",
+                    labels=False
                 ),
             ),
             color=alt.Color(
@@ -641,20 +670,26 @@ with dif_rs:
                 scale=alt.Scale(
                     domain=[0, 1],
                     range=[f"{color_red}", "#1dd3b0"],
-                ),
-                legend=None,
+                    ),
+                legend=None           
             ),
+            tooltip=[
+            alt.Tooltip("MES_STR:N", title="MÊS"),
+            alt.Tooltip("Valor_formatado:N", title="R$ RESULTADO")
+        ]
         )
-        .properties(title="RESULTADO PATRIMONIAL")
+        .properties(title="R$ RESULTADO PATRIMONIAL")
     )
     text = chart.mark_text(
         align="center",
         baseline="middle",
         dy=alt.expr("datum.DIF_PATRIMONIO > 0 ? -10 : 10"),
-        # color="#1e6091",
         fontWeight="bold",
-        # fontSize=15,
-    ).encode(text=alt.Text("DIF_PATRIMONIO:Q", format=",.0f"))
+    ).encode(text=alt.Text("Valor_formatado:N"),
+            tooltip=[
+                alt.Tooltip("MES_STR:N", title="MÊS"),
+                alt.Tooltip("Valor_Formatado:N", title="R$ RESULTADO")
+            ])
     chart = chart + text
     st.altair_chart(chart, use_container_width=True)
 
@@ -680,17 +715,19 @@ with luz_fatura:
                     tickColor="gray",
                     domainColor="gray",
                     labelAngle=0,
+                    labels=False
                 ),
             ),
             y=alt.Y(
                 "Valor:Q",
                 title=None,
                 axis=alt.Axis(
-                    ticks=True,
+                    ticks=False,
                     grid=False,
                     domain=True,
                     tickColor="gray",
                     domainColor="gray",
+                    labels=False
                 ),
             ),
             color=alt.Color(
@@ -702,7 +739,7 @@ with luz_fatura:
                 legend=None,
             ),
         )
-        .properties(title="LUZ")
+        .properties(title="R$ FATURA")
     )
     text = chart.mark_text(
         align="center",
@@ -710,11 +747,10 @@ with luz_fatura:
         dy=0,
         color=f"{color_red}",
         fontWeight="bold",
-        # fontSize=15,
     ).encode(
         text=alt.Text("Valor:Q", format=",.0f"),
         color=alt.condition(
-            alt.datum.Categoria == "FATURA DA CONTA DE LUZ",
+            alt.datum.Categoria == "FATURA",
             alt.value("#fd3e81"),
             alt.value("#adb5bd"),
         ),
@@ -746,11 +782,11 @@ with luz_kwh:
                 "Valor:Q",
                 title=None,
                 axis=alt.Axis(
-                    ticks=True,
                     grid=False,
                     domain=True,
                     tickColor="gray",
                     domainColor="gray",
+                    labels=False
                 ),
             ),
             color=alt.Color(
@@ -762,7 +798,7 @@ with luz_kwh:
                 legend=None,
             ),
         )
-        .properties(title="CONSUMO KWH POR DIA")
+        .properties(title="KWH CONSUMO POR DIA")
     )
     text = chart.mark_text(
         align="center",
@@ -803,22 +839,33 @@ with preco_kwh:
                 "PRECO KWH:Q",
                 title=None,
                 axis=alt.Axis(
-                    ticks=True,
                     grid=False,
                     domain=True,
                     tickColor="gray",
                     domainColor="gray",
+                    labels=False
                 ),
             ),
         )
-        .properties(title="PREÇO KWH")
+        .properties(title="R$ CUSTO KWH")
     )
+    text = chart.mark_text(
+        align="center",
+        baseline="bottom",
+        dy=-10,
+        color="#fd3e81",
+        fontWeight="bold",
+        # fontSize=15,
+    ).encode(
+        text=alt.Text("PRECO KWH:Q", format=",.2f"),
+    )
+    chart = chart + text
     st.altair_chart(chart, use_container_width=True)
 
 ##################################################################################################################################
 ##################################################################################################################################
 ################################################ ANALISES AVANÇADAS ##############################################################
-################################'##################################################################################################
+##################################################################################################################################
 ##################################################################################################################################
 
 st.divider()
@@ -900,6 +947,11 @@ with gastos_futuros_proporcao:
                     legendY=-50,
                 ),
             ),
+            tooltip=[
+                alt.Tooltip("MES_STR:N", title='MÊS'),
+                alt.Tooltip("Categoria:N", title='Categoria'),
+                alt.Tooltip("Proporcao:Q", format=".0%", title='% VALOR')
+            ],
             order=alt.Order("Proporcao:Q"),
         )
         .properties(title="% DISTRIBUIÇÃO DOS GASTOS FUTUROS", height=350)
@@ -917,11 +969,11 @@ with gastos_futuros_proporcao:
         .encode(
             x=alt.X("sum(Valor):Q").stack(
                 "normalize"
-            ),  # Mesmo empilhamento e agregação do gráfico de barras
+            ),
             y=alt.Y("MES_STR:N", sort=alt.SortField(field="date", order="ascending")),
-            detail="Categoria:N",  # Garante que o texto seja calculado por categoria
+            detail="Categoria:N",
             text=alt.Text("Proporcao:Q", format=".0%"),
-            order=alt.Order("Proporcao:Q"),  # Exibindo como porcentagem
+            order=alt.Order("Proporcao:Q"),
         )
     )
     chart = chart + text
@@ -1164,9 +1216,9 @@ with preco_kwh:
     st.altair_chart(chart, use_container_width=True)
 
 
-cartao["% RENDA"] = cartao["% RENDA"] / 100
+dre["% RENDA"] = dre["DESPESAS TOTAL"] / dre["RECEITA TOTAL"]
 chart = (
-    alt.Chart(cartao)
+    alt.Chart(dre)
     .mark_line(strokeWidth=stroke, color=color_red)
     .encode(
         x=alt.X(
@@ -1187,23 +1239,32 @@ chart = (
             title=None,
             axis=alt.Axis(grid=False, domain=True, domainColor="gray", labels=False),
         ),
+        tooltip=[
+            alt.Tooltip("MES_STR:N", title='MÊS'),
+            alt.Tooltip("% RENDA:Q", format=".0%", title='% RENDA')
+        ],
     )
-    .properties(title="% RENDA COM CARTAO DE CREDITO")
+    .properties(title="% ENDIVIDAMENTO")
 )
 text = (
-    alt.Chart(cartao)
+    alt.Chart(dre)
     .mark_text(
         align="center",
         baseline="middle",
-        dy=-10,  # Ajusta a posição vertical do texto
-        color=color_red,  # Cor opcional do texto para visibilidade
+        dy=-10,  
+        color=color_red,
+        fontWeight='bold'
     )
     .encode(
         x=alt.X("MES_STR:N", sort=alt.SortField(field="date", order="ascending")),
         y="% RENDA:Q",
         text=alt.Text(
-            "% RENDA:Q", format=".1%"
-        ),  # Formata como percentual com uma casa decimal
+            "% RENDA:Q", format=".0%"
+        ),
+        tooltip=[
+            alt.Tooltip("MES_STR:N", title='MÊS'),
+            alt.Tooltip("% RENDA:Q", format=".0%", title='% RENDA')
+        ], 
     )
 )
 chart = chart + text
