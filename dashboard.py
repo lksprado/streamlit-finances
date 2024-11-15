@@ -71,10 +71,14 @@ twelve_month = actual_month + pd.DateOffset(months=-11)  # 12 meses para tras
 thirth_month = actual_month + pd.DateOffset(months=-12)  # 13 meses para tras
 fourth_month = actual_month + pd.DateOffset(months=-13)  # 14 meses para tras
 fourth_month_forward = actual_month + pd.DateOffset(months=13)  # 14 meses para frente
-
+today = pd.to_datetime("today").to_period("M").start_time.strftime("%Y-%m-%d")
+today_year = pd.to_datetime("today").year
+today_month = pd.to_datetime("today").month
 ##################################################################################################################################
 ## CORES #########################################################################################################################
-color_green = "#50fa7b"
+color_green = "#07ED41"
+color_green2 = "#39F969"
+color_green3 = "#88FBA5"
 color_red = "#ff5e5b"
 stroke = 2.5
 
@@ -178,7 +182,7 @@ with rec_desp:
                 alt.Tooltip("Valor_Formatado:N", title="R$ VALOR")
             ]
         )
-        .properties(title="R$ RECEITA x DESPESA")
+        .properties(title="R$ RECEITAS x DESPESAS")
     )
     text = chart.mark_text(
         align="center",
@@ -321,6 +325,8 @@ with econ_perc:
 # GRAFICOS DESPESAS ##############################################################################################################
 def gastos_barchart(
     df: pd.DataFrame, col_name: str, max_month, min_month, intervalo: str = "tras"):
+    df["MES_ANO"] = df["MES"].dt.year
+    df["MES_NUMERO"] = df["MES"].dt.month
     col = col_name
     if intervalo == "tras":
         dre_filtered = df[(dre["MES"] <= max_month) & (df["MES"] >= min_month)]
@@ -332,7 +338,7 @@ def gastos_barchart(
     )
     chart = (
         alt.Chart(dre_filtered)
-        .mark_bar(color=f"{color_red}")
+        .mark_bar()
         .encode(
             x=alt.X(
                 "MES_STR:N",
@@ -360,7 +366,12 @@ def gastos_barchart(
             tooltip=[
                 alt.Tooltip("MES_STR:N", title="MÊS"),
                 alt.Tooltip(f"R$ {col}:N", title=f"{col}")
-            ]
+            ],
+            color=alt.condition(
+                            (alt.datum["MES_ANO"] == today_year) & (alt.datum["MES_NUMERO"] == today_month),
+                            alt.value(f"{color_red}"),       
+                            alt.value('#D57270')        
+                        )
         )
         .properties(title=f"R$ {col}")
     )
@@ -381,6 +392,8 @@ total_hm, gastos = st.columns([1, 2])
 
 with total_hm:
     total = gastos_barchart(dre, "DESPESAS TOTAL", forward_month, thirth_month)
+    rule = alt.Chart(dre).mark_rule().encode(strokeDash=alt.value([4, 2]), y=alt.datum(10000), color=alt.value("white"))
+    total = total+rule
     st.altair_chart(total, use_container_width=True)
 
     df_long = dre[(dre["MES"] <= actual_month) & (dre["MES"] >= thirth_month)]
@@ -491,7 +504,7 @@ with gastos:
 ##################################################################################################################################
 ## GRAFICOS DE PATRIMONIO  #######################################################################################################
 
-patrimonio, investimentos_reserva, dif_rs = st.columns(3)
+patrimonio, dif_rs, investimentos_reserva = st.columns(3)
 
 with patrimonio:
     ativos_filtered = ativos[
@@ -534,7 +547,7 @@ with patrimonio:
                 alt.Tooltip("Valor_formatado:N", title="R$ PATRIMÔNIO BRUTO")
             ]
         )
-        .properties(title=f"R$ PATRIMONIO BRUTO")
+        .properties(title=f"R$ PATRIMÔNIO BRUTO")
     )
     text = chart.mark_text(
         align="center",
@@ -543,6 +556,71 @@ with patrimonio:
         color="#00cecb",
         fontWeight="bold",
     ).encode(text=alt.Text("Valor_formatado:N"))
+    chart = chart + text
+    st.altair_chart(chart, use_container_width=True)
+
+with dif_rs:
+    ativos_filtered = ativos[
+        (ativos["MES"] <= actual_month) & (ativos["MES"] >= twelve_month)
+    ]
+    ativos_filtered["Valor_formatado"] = ativos_filtered[
+        "DIF_PATRIMONIO"
+    ].apply(lambda x: f"{x:,.0f}".replace(",", ".") if pd.notnull(x) else "")
+    chart = (
+        alt.Chart(ativos_filtered)
+        .transform_calculate(color_value="if(datum.DIF_PATRIMONIO < 0, 0, 1)")
+        .mark_bar()
+        .encode(
+            x=alt.X(
+                "MES_STR:N",
+                title=None,
+                sort=alt.SortField(field="date", order="ascending"),
+                axis=alt.Axis(
+                    ticks=True,
+                    grid=False,
+                    domain=True,
+                    tickColor="gray",
+                    domainColor="gray",
+                    labelAngle=0,
+                ),
+            ),
+            y=alt.Y(
+                "DIF_PATRIMONIO:Q",
+                title=None,
+                axis=alt.Axis(
+                    ticks=False,
+                    grid=False,
+                    domain=True,
+                    tickColor="gray",
+                    domainColor="gray",
+                    labels=False
+                ),
+            ),
+            color=alt.Color(
+                "color_value:O",
+                scale=alt.Scale(
+                    domain=[0, 1],
+                    range=[f"{color_red}", "#00cecb"],
+                    ),
+                legend=None           
+            ),
+            tooltip=[
+            alt.Tooltip("MES_STR:N", title="MÊS"),
+            alt.Tooltip("Valor_formatado:N", title="R$ RESULTADO")
+        ]
+        )
+        .properties(title="R$ RESULTADO PATRIMONIAL BRUTO")
+    )
+    text = chart.mark_text(
+        align="center",
+        baseline="middle",
+        dy=alt.expr("datum.DIF_PATRIMONIO > 0 ? -10 : 10"),
+        fontWeight="bold",
+    ).encode(text=alt.Text("Valor_formatado:N"),
+            tooltip=[
+                alt.Tooltip("MES_STR:N", title="MÊS"),
+                alt.Tooltip("Valor_Formatado:N", title="R$ RESULTADO")
+            ])
     chart = chart + text
     st.altair_chart(chart, use_container_width=True)
 
@@ -635,70 +713,6 @@ with investimentos_reserva:
     chart = chart + text
     st.altair_chart(chart, use_container_width=True)
 
-with dif_rs:
-    ativos_filtered = ativos[
-        (ativos["MES"] <= actual_month) & (ativos["MES"] >= twelve_month)
-    ]
-    ativos_filtered["Valor_formatado"] = ativos_filtered[
-        "DIF_PATRIMONIO"
-    ].apply(lambda x: f"{x:,.0f}".replace(",", ".") if pd.notnull(x) else "")
-    chart = (
-        alt.Chart(ativos_filtered)
-        .transform_calculate(color_value="if(datum.DIF_PATRIMONIO < 0, 0, 1)")
-        .mark_bar()
-        .encode(
-            x=alt.X(
-                "MES_STR:N",
-                title=None,
-                sort=alt.SortField(field="date", order="ascending"),
-                axis=alt.Axis(
-                    ticks=True,
-                    grid=False,
-                    domain=True,
-                    tickColor="gray",
-                    domainColor="gray",
-                    labelAngle=0,
-                ),
-            ),
-            y=alt.Y(
-                "DIF_PATRIMONIO:Q",
-                title=None,
-                axis=alt.Axis(
-                    ticks=False,
-                    grid=False,
-                    domain=True,
-                    tickColor="gray",
-                    domainColor="gray",
-                    labels=False
-                ),
-            ),
-            color=alt.Color(
-                "color_value:O",
-                scale=alt.Scale(
-                    domain=[0, 1],
-                    range=[f"{color_red}", "#1dd3b0"],
-                    ),
-                legend=None           
-            ),
-            tooltip=[
-            alt.Tooltip("MES_STR:N", title="MÊS"),
-            alt.Tooltip("Valor_formatado:N", title="R$ RESULTADO")
-        ]
-        )
-        .properties(title="R$ RESULTADO PATRIMONIAL")
-    )
-    text = chart.mark_text(
-        align="center",
-        baseline="middle",
-        dy=alt.expr("datum.DIF_PATRIMONIO > 0 ? -10 : 10"),
-        fontWeight="bold",
-    ).encode(text=alt.Text("Valor_formatado:N"),
-            tooltip=[
-                alt.Tooltip("MES_STR:N", title="MÊS"),
-                alt.Tooltip("Valor_Formatado:N", title="R$ RESULTADO")
-            ])
-    chart = chart + text
-    st.altair_chart(chart, use_container_width=True)
 
 ##################################################################################################################################
 ## GRAFICOS DA CONTA DE LUZ  #####################################################################################################
@@ -757,7 +771,7 @@ with luz_fatura:
     ).encode(
         text=alt.Text("Valor:Q", format=",.0f"),
         color=alt.condition(
-            alt.datum.Categoria == "FATURA",
+            alt.datum.Categoria == "FATURA DA CONTA DE LUZ",
             alt.value("#fd3e81"),
             alt.value("#adb5bd"),
         ),
@@ -767,10 +781,27 @@ with luz_fatura:
 
 with luz_kwh:
     luz_filtered = luz[luz["MES"] >= twelve_month]
+    luz_filtered["KWH DIA_FORMATADO"] = luz_filtered[
+        "KWH DIA"
+    ].apply(lambda x: f"{x:,.1f}".replace(".", ",") if pd.notnull(x) else "")
+    luz_filtered["KWH DIA_PREVISTO_FORMATADO"] = luz_filtered[
+        "KWH_DIA_PREVISTO"
+    ].apply(lambda x: f"{x:,.1f}".replace(".", ",") if pd.notnull(x) else "")
+
+    luz_filtered = luz_filtered.melt(
+        id_vars=["MES_STR", "KWH DIA_FORMATADO", "KWH DIA_PREVISTO_FORMATADO"],
+        value_vars=["KWH DIA", "KWH_DIA_PREVISTO"],
+        var_name="Categoria",
+        value_name="Valor"
+    )
+    luz_filtered["Valor_Formatado"] = luz_filtered.apply(
+        lambda row: row["KWH DIA_FORMATADO"] if row["Categoria"] == "KWH DIA" else row["KWH DIA_PREVISTO_FORMATADO"],
+        axis=1
+    )
+
     chart = (
         alt.Chart(luz_filtered)
-        .transform_fold(["KWH DIA", "KWH_DIA_PREVISTO"], as_=["Categoria", "Valor"])
-        .mark_line()
+        .mark_line(strokeWidth=stroke)
         .encode(
             x=alt.X(
                 "MES_STR:N",
@@ -782,13 +813,14 @@ with luz_kwh:
                     domain=True,
                     tickColor="gray",
                     domainColor="gray",
-                    labelAngle=0,
+                    labelAngle=0
                 ),
             ),
             y=alt.Y(
                 "Valor:Q",
                 title=None,
                 axis=alt.Axis(
+                    ticks=False,
                     grid=False,
                     domain=True,
                     tickColor="gray",
@@ -802,29 +834,42 @@ with luz_kwh:
                     domain=["KWH DIA", "KWH_DIA_PREVISTO"],
                     range=["#fd3e81", "#adb5bd"],
                 ),
-                legend=None,
+            legend=None
             ),
+            tooltip=[
+                alt.Tooltip("MES_STR:N", title="MÊS"),
+                alt.Tooltip("Categoria:N", title="LINHA"),
+                alt.Tooltip("Valor_Formatado:N", title="VALOR")
+            ]
         )
-        .properties(title="KWH CONSUMO POR DIA")
+        .properties(title="KWH CONSUMO DIÁRIO")
     )
-    text = chart.mark_text(
-        align="center",
-        baseline="bottom",
-        dy=-10,
-        color=f"{color_red}",
-        fontWeight="bold",
-        # fontSize=15,
-    ).encode(
-        text=alt.Text("Valor:Q", format=",.1f"),
-        color=alt.condition(
-            alt.datum.Categoria == "KWH DIA", alt.value("#fd3e81"), alt.value("#adb5bd")
-        ),
+
+    text = (
+        alt.Chart(luz_filtered)
+        .mark_text(dy=-10, fontWeight="bold",)
+        .encode(
+            x=alt.X("MES_STR:N", sort=alt.SortField(field="date", order="ascending")),
+            y=alt.Y("Valor:Q"),
+            text=alt.Text("Valor_Formatado:N"),
+            color=alt.Color("Categoria:N", scale=alt.Scale(domain=["KWH DIA", "KWH DIA_PREVISTO"], range=["#fd3e81", "#adb5bd"])),
+            tooltip=[
+                alt.Tooltip("MES_STR:N", title="MÊS"),
+                alt.Tooltip("Categoria:N", title="LINHA"),
+                alt.Tooltip("Valor_Formatado:N", title="VALOR")
+            ]
+        )
     )
+
     chart = chart + text
     st.altair_chart(chart, use_container_width=True)
 
+
 with preco_kwh:
     luz_filtered = luz[(luz["MES"] <= actual_month) & (luz["MES"] >= twelve_month)]
+    luz_filtered["PRECO KWH_FORMATADO"] = luz_filtered[
+        "PRECO KWH"
+    ].apply(lambda x: f"{x:,.2f}".replace(".", ",") if pd.notnull(x) else "")
     chart = (
         alt.Chart(luz_filtered)
         .mark_line(color="#fd3e81")
@@ -864,7 +909,7 @@ with preco_kwh:
         fontWeight="bold",
         # fontSize=15,
     ).encode(
-        text=alt.Text("PRECO KWH:Q", format=",.2f"),
+        text=alt.Text("PRECO KWH_FORMATADO:N"),
     )
     chart = chart + text
     st.altair_chart(chart, use_container_width=True)
@@ -877,9 +922,176 @@ with preco_kwh:
 
 st.divider()
 st.subheader("ANÁLISES AVANÇADAS")
+##################################################################################################################################
+## RECEITAS ###################################################################################################################
+
+salario, dividendos, outros = st.columns(3)
+
+with salario:
+    dre['SALARIO_12'] = dre['SALARIO'].rolling(window=12, min_periods=1).sum()
+    dre_filtered = dre[(dre["MES"] <= actual_month) & (dre["MES"] >= twelve_month)]
+    dre_filtered["Valor_formatado"] = dre_filtered["SALARIO_12"].apply(
+        lambda x: f"{x:,.0f}".replace(",", ".")
+    )
+
+    chart = (
+        alt.Chart(dre_filtered)
+        .mark_line(strokeWidth=stroke, color=f"{color_green}")
+        .encode(
+            x=alt.X(
+                "MES_STR:N",
+                title=None,
+                sort=alt.SortField(field="date", order="ascending"),
+                axis=alt.Axis(
+                    ticks=True,
+                    grid=False,
+                    domain=True,
+                    tickColor="gray",
+                    domainColor="gray",
+                    labelAngle=0,
+                ),
+            ),
+            y=alt.Y(
+                "SALARIO_12:Q",
+                title=None,
+                axis=alt.Axis(
+                    grid=False, domain=True, domainColor="gray", labels=False
+                ),
+            ),
+        )
+        .properties(title="R$ SALÁRIO ACUMULADO 12 MESES")
+    )
+    text = (
+        alt.Chart(dre_filtered)
+        .mark_text(
+            align="center",
+            baseline="middle",
+            dy=-10,
+            color=f"{color_green}",
+            fontWeight='bold'
+        )
+        .encode(
+            x=alt.X("MES_STR:N", sort=alt.SortField(field="date", order="ascending")),
+            y="SALARIO_12:Q",
+            text=alt.Text(
+                "Valor_formatado:N"
+            ),
+        )
+    )
+    chart = chart + text
+    st.altair_chart(chart, use_container_width=True)
+
+with dividendos:
+    dre['DIVIDENDOS_12'] = dre['DIVIDENDOS'].rolling(window=12, min_periods=1).sum()
+    dre_filtered = dre[(dre["MES"] <= actual_month) & (dre["MES"] >= twelve_month)]
+    dre_filtered["Valor_formatado"] = dre_filtered["DIVIDENDOS_12"].apply(
+        lambda x: f"{x:,.0f}".replace(",", ".")
+    )
+
+    chart = (
+        alt.Chart(dre_filtered)
+        .mark_line(strokeWidth=stroke, color=f"{color_green2}")
+        .encode(
+            x=alt.X(
+                "MES_STR:N",
+                title=None,
+                sort=alt.SortField(field="date", order="ascending"),
+                axis=alt.Axis(
+                    ticks=True,
+                    grid=False,
+                    domain=True,
+                    tickColor="gray",
+                    domainColor="gray",
+                    labelAngle=0,
+                ),
+            ),
+            y=alt.Y(
+                "DIVIDENDOS_12:Q",
+                title=None,
+                axis=alt.Axis(
+                    grid=False, domain=True, domainColor="gray", labels=False
+                ),
+            ),
+        )
+        .properties(title="R$ DIVIDENDOS ACUMULADOS 12 MESES")
+    )
+    text = (
+        alt.Chart(dre_filtered)
+        .mark_text(
+            align="center",
+            baseline="middle",
+            dy=-10,
+            color=f"{color_green2}",
+            fontWeight='bold'
+        )
+        .encode(
+            x=alt.X("MES_STR:N", sort=alt.SortField(field="date", order="ascending")),
+            y="DIVIDENDOS_12:Q",
+            text=alt.Text(
+                "Valor_formatado:N"
+            ),
+        )
+    )
+    chart = chart + text
+    st.altair_chart(chart, use_container_width=True)
+
+with outros:
+    dre['OUTROS_12'] = dre['OUTROS'].rolling(window=12, min_periods=1).sum()
+    dre_filtered = dre[(dre["MES"] <= actual_month) & (dre["MES"] >= twelve_month)]
+    dre_filtered["Valor_formatado"] = dre_filtered["OUTROS_12"].apply(
+        lambda x: f"{x:,.0f}".replace(",", ".")
+    )
+
+    chart = (
+        alt.Chart(dre_filtered)
+        .mark_line(strokeWidth=stroke, color=f"{color_green3}")
+        .encode(
+            x=alt.X(
+                "MES_STR:N",
+                title=None,
+                sort=alt.SortField(field="date", order="ascending"),
+                axis=alt.Axis(
+                    ticks=True,
+                    grid=False,
+                    domain=True,
+                    tickColor="gray",
+                    domainColor="gray",
+                    labelAngle=0,
+                ),
+            ),
+            y=alt.Y(
+                "OUTROS_12:Q",
+                title=None,
+                axis=alt.Axis(
+                    grid=False, domain=True, domainColor="gray", labels=False
+                ),
+            ),
+        )
+        .properties(title="R$ OUTROS ACUMULADOS 12 MESES")
+    )
+    text = (
+        alt.Chart(dre_filtered)
+        .mark_text(
+            align="center",
+            baseline="middle",
+            dy=-10,
+            color=f"{color_green3}",
+            fontWeight='bold'
+        )
+        .encode(
+            x=alt.X("MES_STR:N", sort=alt.SortField(field="date", order="ascending")),
+            y="OUTROS_12:Q",
+            text=alt.Text(
+                "Valor_formatado:N"
+            ),
+        )
+    )
+    chart = chart + text
+    st.altair_chart(chart, use_container_width=True)
 
 ## GASTOS FUTUROS ################################################################################################################
-gastos_futuros_proporcao, gastos_futuros = st.columns(2)
+gastos_futuros = st.container()
+gastos_futuros, endividamento = st.columns(2)
 
 with gastos_futuros:
     total_futuro = gastos_barchart(
@@ -887,7 +1099,7 @@ with gastos_futuros:
     )
     st.altair_chart(total_futuro, use_container_width=True)
 
-with gastos_futuros_proporcao:
+    
     dre_filtered = dre[
         (dre["MES"] >= forward_month) & (dre["MES"] <= fourth_month_forward)
     ]
@@ -911,18 +1123,18 @@ with gastos_futuros_proporcao:
         .mark_bar()
         .transform_filter(alt.datum.Proporcao > 0)
         .encode(
-            x=alt.X(
+            y=alt.Y(
                 "Proporcao:Q",
                 title=None,
                 axis=alt.Axis(
                     grid=False, domain=True, domainColor="gray", labels=False
                 ),
             ).stack("normalize"),
-            y=alt.Y(
+            x=alt.X(
                 "MES_STR:N",
                 title=None,
                 sort=alt.SortField(field="date", order="ascending"),
-                axis=alt.Axis(grid=False, domain=True, domainColor="gray"),
+                axis=alt.Axis(grid=False, domain=True, domainColor="gray", labelAngle=0),
             ),
             color=alt.Color(
                 field="Categoria",
@@ -959,7 +1171,7 @@ with gastos_futuros_proporcao:
                 alt.Tooltip("Categoria:N", title='Categoria'),
                 alt.Tooltip("Proporcao:Q", format=".0%", title='% VALOR')
             ],
-            order=alt.Order("Proporcao:Q"),
+            order=alt.Order("Categoria:N"),
         )
         .properties(title="% DISTRIBUIÇÃO DOS GASTOS FUTUROS", height=350)
     )
@@ -970,22 +1182,77 @@ with gastos_futuros_proporcao:
             baseline="middle",
             fontWeight="bold",
             color="white",
-            dx=-15,
+            dy=10,
         )
         .transform_filter(alt.datum.Proporcao > 0)
         .encode(
-            x=alt.X("sum(Valor):Q").stack(
+            y=alt.Y("sum(Valor):Q").stack(
                 "normalize"
             ),
-            y=alt.Y("MES_STR:N", sort=alt.SortField(field="date", order="ascending")),
+            x=alt.X("MES_STR:N", sort=alt.SortField(field="date", order="ascending")),
             detail="Categoria:N",
             text=alt.Text("Proporcao:Q", format=".0%"),
-            order=alt.Order("Proporcao:Q"),
+            order=alt.Order("Categoria:N"),
         )
     )
     chart = chart + text
     st.altair_chart(chart, use_container_width=True)
 
+with endividamento:
+    dre["% RENDA"] = dre["DESPESAS TOTAL"] / dre["RECEITA TOTAL"]
+    chart = (
+        alt.Chart(dre)
+        .mark_line(strokeWidth=stroke, color=color_red)
+        .encode(
+            x=alt.X(
+                "MES_STR:N",
+                title=None,
+                sort=alt.SortField(field="date", order="ascending"),
+                axis=alt.Axis(
+                    ticks=True,
+                    grid=False,
+                    domain=True,
+                    tickColor="gray",
+                    domainColor="gray",
+                    labelAngle=0,
+                ),
+            ),
+            y=alt.Y(
+                "% RENDA:Q",
+                title=None,
+                axis=alt.Axis(grid=False, domain=True, domainColor="gray", labels=False),
+            ),
+            tooltip=[
+                alt.Tooltip("MES_STR:N", title='MÊS'),
+                alt.Tooltip("% RENDA:Q", format=".0%", title='% RENDA')
+            ],
+        )
+        .properties(title="% ENDIVIDAMENTO")
+    )
+    text = (
+        alt.Chart(dre)
+        .mark_text(
+            align="center",
+            baseline="middle",
+            dy=-10,  
+            color=color_red,
+            fontWeight='bold'
+        )
+        .encode(
+            x=alt.X("MES_STR:N", sort=alt.SortField(field="date", order="ascending")),
+            y="% RENDA:Q",
+            text=alt.Text(
+                "% RENDA:Q", format=".0%"
+            ),
+            tooltip=[
+                alt.Tooltip("MES_STR:N", title='MÊS'),
+                alt.Tooltip("% RENDA:Q", format=".0%", title='% RENDA')
+            ], 
+        )
+    )
+    chart = chart + text
+    st.altair_chart(chart, use_container_width=True)
+    
 ##################################################################################################################################
 ## CRESCIMENTO ###################################################################################################################
 ativos_filtered = ativos[ativos["MES"] >= pd.to_datetime("2023-09-01")]
@@ -999,8 +1266,8 @@ with curva_bruto:
         .encode(
             y=alt.datum(0),
             size=alt.value(1),
-            color=alt.value("gray"),
-            strokeDash=alt.value([2, 1]),
+            color=alt.value("white"),
+            strokeDash=alt.value([4, 2]),
         )
     )
     chart = (
@@ -1035,7 +1302,7 @@ with curva_bruto:
                 "Categoria:N",
                 scale=alt.Scale(
                     domain=["CURVA BRUTO", "CURVA INFLACAO", "CURVA JUROS"],
-                    range=["#00cecb", "#ff9e00", "#005073"],
+                    range=["#00cecb", "#fb8500", "#fff3b0"],
                 ),
                 legend=alt.Legend(
                     direction="vertical",
@@ -1085,7 +1352,7 @@ with curva_liquido:
                 "Categoria:N",
                 scale=alt.Scale(
                     domain=["CURVA LIQUIDO", "CURVA INFLACAO", "CURVA JUROS"],
-                    range=["#00cecb", "#ff9e00", "#005073"],
+                    range=["#00cecb", "#fb8500", "#fff3b0"],
                 ),
                 legend=alt.Legend(
                     direction="vertical",
@@ -1106,6 +1373,9 @@ with usd:
     ativos_filtered["usd_share"] = (
         ativos_filtered["WISE"] + ativos_filtered["AVENUE"]
     ) / ativos_filtered["PATRIMONIO_LIQUIDO"]
+    ativos_filtered["Valor_formatado"] = ativos_filtered["usd_share"].apply(
+        lambda x: f"{x:,.1%}".replace(".", ",")
+    )
     chart = (
         alt.Chart(ativos_filtered)
         .mark_line(strokeWidth=stroke, color="#00cecb")
@@ -1131,26 +1401,112 @@ with usd:
                 ),
             ),
         )
-        .properties(title="% PATRIMÔNIO DOLARIZADO")
+        .properties(title="% PATRIMÔNIO LÍQUIDO EM USD")
     )
     text = (
         alt.Chart(ativos_filtered)
         .mark_text(
             align="center",
             baseline="middle",
-            dy=-10,  # Ajusta a posição vertical do texto
-            color="#00cecb",  # Cor opcional do texto para visibilidade
+            dy=-10,
+            color="#00cecb",
+            fontWeight="bold",
         )
         .encode(
             x=alt.X("MES_STR:N", sort=alt.SortField(field="date", order="ascending")),
             y="usd_share:Q",
             text=alt.Text(
-                "usd_share:Q", format=".1%"
+                "Valor_formatado:N"
             ),  # Formata como percentual com uma casa decimal
         )
     )
     chart = chart + text
     st.altair_chart(chart, use_container_width=True)
+
+
+dre_filtered = dre[(dre["MES"] <= forward_month) & (dre["MES"] >= thirth_month)]
+df_long = dre_filtered.melt(
+    id_vars=["MES", "MES_STR"],
+    value_vars=[
+        "DESPESAS LUCAS",
+        "DESPESAS JESSICA",
+    ],
+    var_name="Categoria",
+    value_name="Valor",
+)
+df_long["Total_Mensal"] = df_long.groupby("MES")["Valor"].transform("sum")
+df_long["Proporcao"] = df_long["Valor"] / df_long["Total_Mensal"]
+chart = (
+    alt.Chart(df_long)
+    .mark_bar()
+    .transform_filter(alt.datum.Proporcao > 0)
+    .encode(
+        y=alt.Y(
+            "Proporcao:Q",
+            title=None,
+            axis=alt.Axis(
+                grid=False, domain=True, domainColor="gray", labels=False
+            ),
+        ).stack("normalize"),
+        x=alt.X(
+            "MES_STR:N",
+            title=None,
+            sort=alt.SortField(field="date", order="ascending"),
+            axis=alt.Axis(grid=False, domain=True, domainColor="gray", labelAngle=0),
+        ),
+        color=alt.Color(
+            field="Categoria",
+            type="nominal",
+            sort=alt.SortField(field="Proporcao:Q", order="descending"),
+            scale=alt.Scale(
+                domain=[
+                    "DESPESAS JESSICA",
+                    "DESPESAS LUCAS",
+                ],
+                range=[
+                    "#ff69eb",
+                    "#49b6ff",
+                ],
+            ),
+            legend=alt.Legend(
+                orient="none",
+                direction="horizontal",
+                title=None,
+                legendX=400,
+                legendY=-50,
+            ),
+        ),
+        tooltip=[
+            alt.Tooltip("MES_STR:N", title='MÊS'),
+            alt.Tooltip("Categoria:N", title='Categoria'),
+            alt.Tooltip("Proporcao:Q", format=".0%", title='% VALOR')
+        ],
+        order=alt.Order("Categoria:N"),
+    )
+    .properties(title="% PROPORÇÃO DOS GASTOS", height=350)
+)
+text = (
+    alt.Chart(df_long)
+    .mark_text(
+        align="center",
+        baseline="middle",
+        fontWeight="bold",
+        color="white",
+        dy=10,
+    )
+    .transform_filter(alt.datum.Proporcao > 0)
+    .encode(
+        y=alt.Y("sum(Valor):Q").stack(
+            "normalize"
+        ),
+        x=alt.X("MES_STR:N", sort=alt.SortField(field="date", order="ascending")),
+        detail="Categoria:N",
+        text=alt.Text("Proporcao:Q", format=".0%"),
+        order=alt.Order("Categoria:N"),
+    )
+)
+chart = chart + text
+st.altair_chart(chart, use_container_width=True)
 
 consumo_kwh, preco_kwh = st.columns(2)
 
@@ -1221,58 +1577,3 @@ with preco_kwh:
         .properties(title="CUSTO KWH HISTÓRICO")
     )
     st.altair_chart(chart, use_container_width=True)
-
-
-dre["% RENDA"] = dre["DESPESAS TOTAL"] / dre["RECEITA TOTAL"]
-chart = (
-    alt.Chart(dre)
-    .mark_line(strokeWidth=stroke, color=color_red)
-    .encode(
-        x=alt.X(
-            "MES_STR:N",
-            title=None,
-            sort=alt.SortField(field="date", order="ascending"),
-            axis=alt.Axis(
-                ticks=True,
-                grid=False,
-                domain=True,
-                tickColor="gray",
-                domainColor="gray",
-                labelAngle=0,
-            ),
-        ),
-        y=alt.Y(
-            "% RENDA:Q",
-            title=None,
-            axis=alt.Axis(grid=False, domain=True, domainColor="gray", labels=False),
-        ),
-        tooltip=[
-            alt.Tooltip("MES_STR:N", title='MÊS'),
-            alt.Tooltip("% RENDA:Q", format=".0%", title='% RENDA')
-        ],
-    )
-    .properties(title="% ENDIVIDAMENTO")
-)
-text = (
-    alt.Chart(dre)
-    .mark_text(
-        align="center",
-        baseline="middle",
-        dy=-10,  
-        color=color_red,
-        fontWeight='bold'
-    )
-    .encode(
-        x=alt.X("MES_STR:N", sort=alt.SortField(field="date", order="ascending")),
-        y="% RENDA:Q",
-        text=alt.Text(
-            "% RENDA:Q", format=".0%"
-        ),
-        tooltip=[
-            alt.Tooltip("MES_STR:N", title='MÊS'),
-            alt.Tooltip("% RENDA:Q", format=".0%", title='% RENDA')
-        ], 
-    )
-)
-chart = chart + text
-st.altair_chart(chart, use_container_width=True)
