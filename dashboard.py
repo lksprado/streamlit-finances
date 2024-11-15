@@ -1,16 +1,17 @@
 import os
-import sys
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+# import sys
+# sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 import locale
 import altair as alt
 import pandas as pd
 import streamlit as st
 from datetime import datetime as dt
 from src.get_data import GoogleFinance
+import logging
 
-pd.set_option("display.max_columns", None)
-pd.set_option("display.max_rows", None)
-
+logging.basicConfig(level=logging.DEBUG)
+from dotenv import load_dotenv
+load_dotenv()
 ##################################################################################################################################
 ## CONFIGURACOES INICIAIS ########################################################################################################
 st.set_page_config("FINANCES", layout="wide", page_icon="📊")
@@ -24,8 +25,9 @@ locale.setlocale(locale.LC_ALL, "pt_BR.UTF-8")
 # @st.cache_resource
 def get_plans():
     plans = GoogleFinance()
+    if plans is None:
+        raise ValueError("plans retornou None")
     return plans
-
 
 ##################################################################################################################################
 ## FILTROS DE MES PARA BIG NUMBERS ###############################################################################################
@@ -50,9 +52,14 @@ def filter_previous_month(dataframe: pd.DataFrame):
 ## INSTANCIAR ####################################################################################################################
 plans = get_plans()
 dre = plans.dre_df_transformation()
+if dre is None:
+    raise ValueError("dre_df_transformation retornou None")
 ativos = plans.ativos_df_transformation()
+if ativos is None:
+    raise ValueError("ativos_df_transformation retornou None")
 luz = plans.luz_df_transformation()
-
+if luz is None:
+    raise ValueError("luz_df_transformation")
 ##################################################################################################################################
 ## GERAR DATAS ###################################################################################################################
 dre_today = filter_latest_month(dre)

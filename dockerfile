@@ -1,19 +1,35 @@
+# Use uma imagem base do Python
 FROM python:3.12-slim
 
-# Set the working directory inside the container
-WORKDIR /src
+# Define o diretório de trabalho no container
+WORKDIR /app
 
-# Instala o Poetry
-RUN pip install --no-cache-dir poetry
+# Copia o arquivo requirements.txt para o container
+COPY requirements.txt ./
 
-# Copie apenas os arquivos necessários para instalar as dependências
-COPY pyproject.toml poetry.lock ./
-RUN poetry install --no-root
+# Instala as dependências usando o pip
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Copie o código do aplicativo
+RUN apt-get update && \
+    apt-get install -y locales && \
+    rm -rf /var/lib/apt/lists/*
+
+RUN apt-get install -y locales
+RUN sed -i -e 's/# en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/'        /etc/locale.gen \
+    && sed -i -e 's/# pt_BR.UTF-8 UTF-8/pt_BR.UTF-8 UTF-8/' /etc/locale.gen \
+    && locale-gen
+
+RUN apt-get update && apt-get install -y curl
+
+# Copia o restante do código do projeto para o container
 COPY . .
+COPY .env .env
 
-# Exponha a porta que o Streamlit usará
+# Define variáveis de ambiente para o Streamlit
+ENV STREAMLIT_SERVER_PORT=8502
+ENV STREAMLIT_SERVER_ADDRESS=0.0.0.0
+
+# Exponha a porta para o Streamlit
 EXPOSE 8502
 
 # Comando para executar o Streamlit

@@ -25,6 +25,7 @@ class GoogleFinance:
             "Credit Card": os.getenv("URL_CREDIT_CARD"),
         }
 
+
     def connect_to_google(self):
         try:
             gc = gp.service_account(filename=self.credentials)
@@ -45,15 +46,12 @@ class GoogleFinance:
                 # Acessa a planilha e transforma em DataFrame
                 link = con.open_by_url(sheet_url).worksheet(plan_name)
                 df = pd.DataFrame(link.get_all_values())
-                con.session.close()
                 return df
             else:
                 print(f"Planilha '{plan_name}' não encontrada no dicionário.")
-                con.session.close()
                 return None
         except Exception as e:
             print(f"Erro ao buscar '{plan_name}': {e}")
-            con.session.close()
             return None
 
     def clean_months(self, dataframe: pd.DataFrame, column_name: str) -> pd.DataFrame:
@@ -320,40 +318,10 @@ class GoogleFinance:
         return luz_com_previsao
 
 
-        cartao = self.get_dataframes("Credit Card")
-        if cartao is None or cartao.empty:
-            erro = print("Erro: Credit Card DataFrame não carregado ou está vazio")
-            return erro
-        headers = cartao.iloc[29]
-        headers.name = None
-        cartao = pd.DataFrame(cartao.values[30:], columns=headers)
-        cartao = cartao[["Mes/Ano Gráfico", "Fatura", "Renda", "% Renda"]]
-        cartao.columns = [x.upper() for x in cartao.columns]
-        cartao = cartao.rename(
-            columns={"MES/ANO GRÁFICO": "MES", "PREÇO KWH": "PRECO KWH"}
-        )
-        cartao = self.clean_months(cartao, "MES")
-        cartao = cartao.replace("#N/A", pd.NA)
-        cartao = cartao.dropna()
-        cartao = cartao.map(
-            lambda x: (
-                str(x)
-                .replace("R$ ", "")
-                .replace(".", "")
-                .replace(",", ".")
-                .replace("%", "")
-                if isinstance(x, str)
-                else x
-            )
-        ).astype(float, errors="ignore")
-        cartao = cartao.fillna("#N/A")
-        cartao["MES_STR"] = cartao["MES"].dt.strftime("%b/%y")
-        return cartao
 
-
-if __name__ == "__main__":
-    plans = GoogleFinance()
-    dre = plans.dre_df_transformation()
+# if __name__ == "__main__":
+#     plans = GoogleFinance()
+#     dre = plans.dre_df_transformation()
     # atv = plans.ativos_df_transformation()
     # print(atv)
     # print(atv.tail())
@@ -363,5 +331,3 @@ if __name__ == "__main__":
     # print(luz.dtypes)
     # atv.to_csv("atv.csv", sep=';', index=False)
     # dre.to_csv("dre.csv", sep=';', index=False)
-    cartao = plans.cartao_df_transformation()
-    print(cartao)
