@@ -94,21 +94,24 @@ class GoogleFinance:
         headers = dre.iloc[3]
         headers.name = None
         dre = pd.DataFrame(dre.values[4:], columns=headers)
+        dre.columns = [x.upper() for x in dre.columns]
         dre = dre[
             [
-                "Mês.Déb",
-                "Salários",
-                "Dividendos",
-                "Outros",
-                "Receita Total",
-                "Despesas Total",
-                "Resultado",
-                "T_Mercado",
-                "T_Diversos",
-                "T_Assinaturas",
-                "T_Rolê",
-                "T_Transporte",
-                "T_Apartamento",
+                "MÊS.DÉB",
+                "SALÁRIOS",
+                "DIVIDENDOS",
+                "OUTROS",
+                "RECEITA TOTAL",
+                "DESPESAS TOTAL",
+                "RESULTADO",
+                "T_MERCADO",
+                "T_DIVERSOS",
+                "T_ASSINATURAS",
+                "T_ROLÊ",
+                "T_TRANSPORTE",
+                "T_APARTAMENTO",
+                "DESPESAS LUCAS",
+                "DESPESAS JESSICA"
             ]
         ]
         dre.columns = [x.upper() for x in dre.columns]
@@ -146,36 +149,37 @@ class GoogleFinance:
         headers = ativos.iloc[5]
         headers.name = None
         ativos = pd.DataFrame(ativos.values[6:], columns=headers)
+        ativos.columns = [x.upper() for x in ativos.columns]
         ativos = ativos[
             [
-                "Mês",
-                "Patrimônio Total",
-                "Patrimônio R$",
-                "Investimento",
-                "Reservas",
-                "Dif R$",
-                "%Var. R$",
-                "Patrimônio L R$",
-                "Investimento L",
-                "Reservas L",
-                "Bradesco",
-                "Nuinvest L",
-                "Binance",
-                "Avenue",
-                "Daycoval",
-                "Wise",
-                "$ Avenue",
-                "$ Wise",
-                "Cotação USD",
-                "Patrimônio J R$",
-                "Investimento J",
-                "Reservas J",
-                "Banco Brasil",
-                "Sofisa",
+                "MÊS",
+                "PATRIMÔNIO TOTAL",
+                "PATRIMÔNIO R$",
+                "INVESTIMENTO",
+                "RESERVAS",
+                "DIF R$",
+                "%VAR. R$",
+                "PATRIMÔNIO L R$",
+                "INVESTIMENTO L",
+                "RESERVAS L",
+                "BRADESCO",
+                "NUINVEST L",
+                "BINANCE",
+                "AVENUE",
+                "DAYCOVAL",
+                "WISE",
+                "$ AVENUE",
+                "$ WISE",
+                "COTAÇÃO USD",
+                "PATRIMÔNIO J R$",
+                "INVESTIMENTO J",
+                "RESERVAS J",
+                "BANCO BRASIL",
+                "SOFISA",
                 "ITI",
-                "Nubank",
-                "Nuinvest J",
-                "Carro",
+                "NUBANK",
+                "NUINVEST J",
+                "CARRO",
                 "IPCA-15",
                 "SELIC MENSAL",
                 "CURVA INFLACAO",
@@ -186,7 +190,6 @@ class GoogleFinance:
                 "CURVA LIQUIDO",
             ]
         ]
-        ativos.columns = [x.upper() for x in ativos.columns]
         ativos = ativos.rename(
             columns={
                 "MÊS": "MES",
@@ -240,8 +243,8 @@ class GoogleFinance:
         headers = luz.iloc[0]
         headers.name = None
         luz = pd.DataFrame(luz.values[1:], columns=headers)
-        luz = luz[["mês", "Fatura", "kWh", "Dias", "kWh Dia", "Preço kWh"]]
         luz.columns = [x.upper() for x in luz.columns]
+        luz = luz[["MÊS", "FATURA", "KWH", "DIAS", "KWH DIA", "PREÇO KWH"]]
         luz = luz.rename(columns={"MÊS": "MES", "PREÇO KWH": "PRECO KWH"})
         luz = self.clean_months(luz, "MES")
         luz = luz.replace("#N/A", pd.NA)
@@ -319,9 +322,10 @@ class GoogleFinance:
 
 
 
-# if __name__ == "__main__":
-#     plans = GoogleFinance()
-#     dre = plans.dre_df_transformation()
+if __name__ == "__main__":
+    plans = GoogleFinance()
+    dre = plans.dre_df_transformation()
+    print(dre)
     # atv = plans.ativos_df_transformation()
     # print(atv)
     # print(atv.tail())
