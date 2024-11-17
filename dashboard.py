@@ -797,7 +797,7 @@ with gastos:
         st.altair_chart(mercado, use_container_width=True)
     
     with apartamento:
-        mercado = barchart_simples(df=dre,col_name= "APARTAMENTO",max_month= forward_month,min_month= thirth_month,cor1= vermelho_medio,cor2= vermelho_claro, title="R$ TRANSPORTE")
+        mercado = barchart_simples(df=dre,col_name= "APARTAMENTO",max_month= forward_month,min_month= thirth_month,cor1= vermelho_medio,cor2= vermelho_claro, title="R$ APARTAMENTO")
         st.altair_chart(mercado, use_container_width=True)
 
 ##################################################################################################################################
