@@ -928,7 +928,7 @@ with luz_fatura:
                     tickColor="gray",
                     domainColor="gray",
                     labelAngle=0,
-                    labels=False
+                    labels=True
                 ),
             ),
             y=alt.Y(
@@ -1136,35 +1136,15 @@ ativos_filtered = ativos[ativos["MES"] >= pd.to_datetime("2023-09-01")]
 with curva_bruto:
     lista = ["CURVA BRUTO", "CURVA INFLACAO", "CURVA JUROS"]
     lista_cores = ["#00cecb", "#fb8500", "#fff3b0"]
-    chart = linha_multiplas_sem_rotulo(df=ativos,cols_name=lista,cols_color= lista_cores,min_month='2023-09-01', title="CURVA PATRIMÔNIO BRUTO x SELIC x IPCA")
-    zero = (
-        alt.Chart(ativos_filtered)
-        .mark_rule()
-        .encode(
-            y=alt.datum(0),
-            size=alt.value(1),
-            color=alt.value("white"),
-            strokeDash=alt.value([4, 2]),
-        )
-    )
-    chart = chart + zero
+    chart = linha_multiplas_sem_rotulo(df=ativos,cols_name=lista,cols_color= lista_cores,min_month='2023-09-01', title="CURVA PATRIMÔNIO BRUTO x SELIC x INFLACAO")
+    chart = chart
     st.altair_chart(chart, use_container_width=True)
 
 with curva_liquido:
     lista = ["CURVA LIQUIDO", "CURVA INFLACAO", "CURVA JUROS"]
     lista_cores = ["#00cecb", "#fb8500", "#fff3b0"]
-    chart = linha_multiplas_sem_rotulo(ativos,lista, lista_cores, '2023-09-01', title="CURVA PATRIMÔNIO LIQUIDO x SELIC x IPCA")
-    zero = (
-        alt.Chart(ativos_filtered)
-        .mark_rule()
-        .encode(
-            y=alt.datum(0),
-            size=alt.value(1),
-            color=alt.value("white"),
-            strokeDash=alt.value([4, 2]),
-        )
-    )
-    chart = chart + zero
+    chart = linha_multiplas_sem_rotulo(ativos,lista, lista_cores, '2023-09-01', title="CURVA PATRIMÔNIO LIQUIDO x SELIC x INFLACAO")
+    chart = chart
     st.altair_chart(chart, use_container_width=True)
 
 with usd:

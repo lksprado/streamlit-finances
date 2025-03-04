@@ -164,7 +164,7 @@ class GoogleFinance:
                 "RESERVAS L",
                 "BRADESCO",
                 "NUINVEST L",
-                "BINANCE",
+                "BITCOIN",
                 "AVENUE",
                 "DAYCOVAL",
                 "WISE",
@@ -180,7 +180,7 @@ class GoogleFinance:
                 "NUBANK",
                 "NUINVEST J",
                 "CARRO",
-                "IPCA-15",
+                "INFLACAO",
                 "SELIC MENSAL",
                 "CURVA INFLACAO",
                 "CURVA JUROS",
@@ -208,7 +208,7 @@ class GoogleFinance:
                 "INVESTIMENTO J": "INVESTIMENTO_JESSICA",
                 "RESERVAS J": "RESERVAS_JESSICA",
                 "NUINVEST J": "NUINVEST_JESSICA",
-                "IPCA-15": "PERC_IPCA",
+                "INFLACAO": "PERC_INFLACAO",
                 "SELIC MENSAL": "PERC_SELIC",
             }
         )
@@ -324,11 +324,11 @@ class GoogleFinance:
 
 if __name__ == "__main__":
     plans = GoogleFinance()
-    dre = plans.dre_df_transformation()
-    print(dre)
-    # atv = plans.ativos_df_transformation()
+    # dre = plans.dre_df_transformation()
+    # print(dre)
+    #atv = plans.ativos_df_transformation()
     # print(atv)
-    # print(atv.tail())
+    #print(atv.tail())
     # print(atv.dtypes)
     # luz = plans.luz_df_transformation()
     # print(luz)
