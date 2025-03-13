@@ -11,6 +11,9 @@ black = "^24.10.0"
 isort = "^5.13.2"
 taskipy = "^1.14.0"
 streamlit = "^1.40.1"
+chromadb = "^0.6.3"
+gspread = "^6.2.0"
+openai = "^1.66.3"
 
 
 [build-system]
