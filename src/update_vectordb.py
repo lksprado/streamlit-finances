@@ -49,7 +49,7 @@ def dre_json():
     dre = dre.drop(columns=['MES_STR'])
     dre_dict = dre.to_dict(orient='records')  # Converte para uma lista de dicionários
     salvar_em_json(dre_dict, file_json)  # Salva no arquivo JSON
-    insert_into_chromadb(file_json, "dre_data")  # Insere os dados do arquivo JSON no ChromaDB
+    # insert_into_chromadb(file_json, "dre_data")  # Insere os dados do arquivo JSON no ChromaDB
     
 def ativos_json():
     file_json = 'files/ativos_data.json'
@@ -57,11 +57,10 @@ def ativos_json():
     ativos = ativos.drop(columns=['MES_STR'])
     ativos = ativos[ativos['MES'] >= pd.Timestamp('2023-09-01')]
     ativos = ativos.fillna(0)
-    
     ativos_dict = ativos.to_dict(orient='records')  # Converte para uma lista de dicionários
     salvar_em_json(ativos_dict, file_json)  # Salva no arquivo JSON
-    insert_into_chromadb(file_json, "ativos_data")  # Insere os dados do arquivo JSON no ChromaDB
+    # insert_into_chromadb(file_json, "ativos_data")  # Insere os dados do arquivo JSON no ChromaDB
 
 if __name__ == '__main__':
-    dre_json()
+    # dre_json()
     ativos_json()

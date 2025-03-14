@@ -4,4 +4,5 @@ streamlit
 gspread
 python-dotenv
 statsmodels
+openai
 

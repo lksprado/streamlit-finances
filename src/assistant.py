@@ -58,14 +58,14 @@ def update_assistant_with_vector_store(assistant, vector_store):
     )
     print("Assistente atualizado para usar o Vector Store.")
 
-def delete_file_from_vector_store(vector_store_id, file_id):
+def delete_file_from_vector_store(vector_store, file_id):
     try:
         # Exclui o arquivo da vector store
         openai.VectorStoreFile.delete(
-            vector_store_id=vector_store_id,
+            vector_store_id=vector_store,
             file_id=file_id
         )
-        print(f"Arquivo {file_id} removido da vector store {vector_store_id}.")
+        print(f"Arquivo {file_id} removido da vector store {vector_store}.")
 
         # Exclui o arquivo do armazenamento de arquivos
         openai.File.delete(file_id)
@@ -91,7 +91,7 @@ def list_vector_store_files(vector_store):
             print(f"Tamanho (bytes): {file_details.bytes}")
             print(f"Data de Criação: {file_details.created_at}")
             print("-" * 40)
-
+        return file_list 
     except Exception as e:
         print(f"Ocorreu um erro ao listar os arquivos: {e}")
 

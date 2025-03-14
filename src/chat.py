@@ -14,11 +14,11 @@ client = OpenAI(api_key=os.getenv("YOUR_OPENAI_API_KEY"))
 
 
 
-# Função para contar tokens
-def count_tokens(text):
-    enc = tiktoken.encoding_for_model("gpt-4o-mini")
-    tokens = enc.encode(text)
-    return len(tokens)
+# # Função para contar tokens
+# def count_tokens(text):
+#     enc = tiktoken.encoding_for_model("gpt-4o-mini")
+#     tokens = enc.encode(text)
+#     return len(tokens)
 
 # Função para enviar a pergunta ao assistente e obter a resposta
 def responder_pergunta(pergunta):
@@ -50,13 +50,13 @@ def responder_pergunta(pergunta):
     latest_message = messages[0]
     latest_message = latest_message.content[0].text.value.strip()
     
-    input = count_tokens(pergunta)
-    output = count_tokens(latest_message)
-    total = input+output
-    print(f"Tokens input:{input}")
-    print(f"Tokens output: {output}")
-    print(f"Total: {total}") 
-    print("----------------")         
+    # input = count_tokens(pergunta)
+    # output = count_tokens(latest_message)
+    # total = input+output
+    # print(f"Tokens input:{input}")
+    # print(f"Tokens output: {output}")
+    # print(f"Total: {total}") 
+    # print("----------------")         
     return latest_message
 
 # # Interface do Streamlit
@@ -70,6 +70,6 @@ def responder_pergunta(pergunta):
 #     resposta = responder_pergunta(pergunta)
 
 if __name__ == "__main__":
-    pergunta = "Considerando resultados do mês passado faça recomendações para despesas e para os ativos"
+    pergunta = "Considerando resultados do mês passado, resumidamente, faça recomendações para despesas e para os ativos"
     resposta = responder_pergunta(pergunta)
     print(resposta)

@@ -5,10 +5,16 @@ import locale
 import altair as alt
 import pandas as pd
 import streamlit as st
-from datetime import datetime as dt
+from datetime import datetime, date
+from decimal import Decimal
+import json 
 from src.get_data import GoogleFinance
 import logging
-
+from openai import OpenAI
+import openai
+from datetime import datetime
+import time 
+import io
 logging.basicConfig(level=logging.DEBUG)
 from dotenv import load_dotenv
 load_dotenv()
@@ -60,6 +66,16 @@ if ativos is None:
 luz = plans.luz_df_transformation()
 if luz is None:
     raise ValueError("luz_df_transformation")
+
+dre_json = dre.drop(columns=['MES_STR'])
+dre_dict = dre.to_dict(orient='records')  # Converte para uma lista de dicionários
+
+ativos_json = ativos.drop(columns=['MES_STR'])
+ativos_json = ativos_json[ativos_json['MES'] >= pd.Timestamp('2023-09-01')]
+ativos_json = ativos_json.fillna(0)
+ativos_dict = ativos_json.to_dict(orient='records') 
+
+
 ##################################################################################################################################
 ## GERAR DATAS ###################################################################################################################
 dre_today = filter_latest_month(dre)
@@ -87,6 +103,123 @@ azul_claro = "#5cfffc"
 azul_escuro = "#007a78"
 rosa = "#fd3e81"
 stroke = 2.5
+
+##################################################################################################################################
+## CHATGPT #########################################################################################################################
+# Função para enviar a pergunta ao assistente e obter a resposta
+ASSISTANT_ID = os.getenv("ASSISTANT_ID")
+VECTOR_ID = os.getenv("VECTOR_ID")
+client = OpenAI(api_key=os.getenv("YOUR_OPENAI_API_KEY"))
+
+def responder_pergunta(pergunta):
+    thread = client.beta.threads.create(
+        messages=[
+            {
+                "role": "user",
+                "content": f"hoje é dia {datetime.now()} {pergunta}",
+            }
+        ]
+    )
+
+    run = client.beta.threads.runs.create(thread_id=thread.id, assistant_id=ASSISTANT_ID)
+
+    while run.status != "completed":
+        run = client.beta.threads.runs.retrieve(thread_id=thread.id, run_id=run.id)
+        time.sleep(1)
+
+
+    message_response = client.beta.threads.messages.list(thread_id=thread.id)
+    messages = message_response.data
+
+    latest_message = messages[0]
+    latest_message = latest_message.content[0].text.value.strip()
+    
+    return latest_message
+
+def list_vector_store_files(vector_store):
+    try:
+        # Lista os arquivos associados à vector store
+        file_list = client.vector_stores.files.list(vector_store_id=vector_store)
+        
+        if not file_list:
+            print("Nenhum arquivo encontrado na vector store.")
+            return
+
+        # Itera sobre cada arquivo e obtém detalhes
+        for file_item in file_list:
+            file_details = client.files.retrieve(file_id=file_item.id)
+            print(f"ID do Arquivo: {file_details.id}")
+            print(f"Nome do Arquivo: {file_details.filename}")
+            print(f"Tamanho (bytes): {file_details.bytes}")
+            print(f"Data de Criação: {file_details.created_at}")
+            print("-" * 40)
+        return file_list 
+    except Exception as e:
+        print(f"Ocorreu um erro ao listar os arquivos: {e}")
+
+def delete_file_from_vector_store(vector_store, file_id):
+    try:
+        # Exclui o arquivo da vector store
+        openai.VectorStoreFile.delete(
+            vector_store_id=vector_store,
+            file_id=file_id
+        )
+        print(f"Arquivo {file_id} removido da vector store {vector_store}.")
+
+        # Exclui o arquivo do armazenamento de arquivos
+        openai.File.delete(file_id)
+        print(f"Arquivo {file_id} excluído do armazenamento de arquivos.")
+    except Exception as e:
+        print(f"Ocorreu um erro ao excluir o arquivo: {e}")
+
+def upload_files_to_vector_store(vector_store, file_paths):
+    file_streams = []
+    for file_path in file_paths:
+        try:
+            with open(file_path, "rb") as file:
+                # Cria um objeto BytesIO e adiciona o atributo 'name'
+                file_stream = io.BytesIO(file.read())
+                file_stream.name = os.path.basename(file_path)
+                file_streams.append(file_stream)
+            print(f"Arquivo {file_path} preparado para upload.")
+        except FileNotFoundError:
+            print(f"Arquivo {file_path} não encontrado.")
+
+    if file_streams:
+        file_batch = client.vector_stores.file_batches.upload_and_poll(
+            vector_store_id=vector_store, files=file_streams
+        )
+        print(f"Status do upload: {file_batch.status}")
+        print(f"Contagem de arquivos: {file_batch.file_counts}")
+    else:
+        print("Nenhum arquivo foi preparado para upload.")
+
+def custom_serializer(obj):
+    if isinstance(obj, (datetime, date)):
+        return obj.isoformat()
+    elif isinstance(obj, Decimal):
+        return float(obj)
+    raise TypeError(f"Tipo {type(obj)} não é serializável")
+
+# Função para salvar dados em um arquivo JSON
+def salvar_em_json(dados, file_path):
+    with open(file_path, 'w') as file:
+        json.dump(dados, file, indent=4, default=custom_serializer)
+
+def make_dre_json(dict):
+    file_json = 'files/dre_data.json'
+    salvar_em_json(dict, file_json)  # Salva no arquivo JSON
+    
+def make_ativos_json(dict):
+    file_json = 'files/ativos_data.json'
+    salvar_em_json(dict, file_json)  # Salva no arquivo JSON
+
+def update_assistant_with_vector_store(assistant, vector_store):
+    client.beta.assistants.update(
+        assistant_id=assistant,
+        tool_resources={"file_search": {"vector_store_ids": [vector_store]}},
+    )
+    print("Assistente atualizado para usar o Vector Store.")
 
 ##################################################################################################################################
 ## FUNCOES DE GRAFICOS ###########################################################################################################
@@ -1161,3 +1294,24 @@ with consumo_kwh:
 with preco_kwh:
     chart = linha_simples_sem_rotulo(df=luz,col_name= "PRECO KWH",max_month=None, min_month=None, cor1= rosa, numero='decimal', title="CUSTO KWH HISTÓRICO")
     st.altair_chart(chart, use_container_width=True)
+
+if st.button("**RESUMO CHATGPT**"):
+    make_dre_json(dre_dict)
+    make_ativos_json(ativos_dict)
+    file_path = ["files/dre_data.json", "files/ativos_data.json"]
+    ls = list_vector_store_files(VECTOR_ID)
+    for file in ls:
+        file_details = client.files.retrieve(file_id=file.id)
+        delete_file_from_vector_store(VECTOR_ID, file_details)
+    upload_files_to_vector_store(VECTOR_ID,file_path)
+    update_assistant_with_vector_store(ASSISTANT_ID,VECTOR_ID)
+    
+    pergunta = "Sem formatação markdown, e considerando resultados do mês passado,faça análise de despesas e os ativos de forma sucinta."
+    resposta = responder_pergunta(pergunta)
+    st.write(resposta)
+
+duvida = st.text_input("Digite sua pergunta:")
+
+if duvida:
+    resposta = responder_pergunta(duvida)
+    st.write(f"💬 Resposta: {resposta}")
