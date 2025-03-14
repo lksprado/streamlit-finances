@@ -58,15 +58,58 @@ def update_assistant_with_vector_store(assistant, vector_store):
     )
     print("Assistente atualizado para usar o Vector Store.")
 
+def delete_file_from_vector_store(vector_store_id, file_id):
+    try:
+        # Exclui o arquivo da vector store
+        openai.VectorStoreFile.delete(
+            vector_store_id=vector_store_id,
+            file_id=file_id
+        )
+        print(f"Arquivo {file_id} removido da vector store {vector_store_id}.")
+
+        # Exclui o arquivo do armazenamento de arquivos
+        openai.File.delete(file_id)
+        print(f"Arquivo {file_id} excluído do armazenamento de arquivos.")
+    except Exception as e:
+        print(f"Ocorreu um erro ao excluir o arquivo: {e}")
+        
+        
+def list_vector_store_files(vector_store):
+    try:
+        # Lista os arquivos associados à vector store
+        file_list = client.vector_stores.files.list(vector_store_id=vector_store)
+        
+        if not file_list:
+            print("Nenhum arquivo encontrado na vector store.")
+            return
+
+        # Itera sobre cada arquivo e obtém detalhes
+        for file_item in file_list:
+            file_details = client.files.retrieve(file_id=file_item.id)
+            print(f"ID do Arquivo: {file_details.id}")
+            print(f"Nome do Arquivo: {file_details.filename}")
+            print(f"Tamanho (bytes): {file_details.bytes}")
+            print(f"Data de Criação: {file_details.created_at}")
+            print("-" * 40)
+
+    except Exception as e:
+        print(f"Ocorreu um erro ao listar os arquivos: {e}")
+
+
 if __name__ == '__main__':
 
-    # Criar o assistente com file_search habilitado
-    # assistant = create_assistant_with_file_search()
-    assistant = os.getenv("ASSISTANT_ID")
+    # # Criar o assistente com file_search habilitado
+    # # assistant = create_assistant_with_file_search()
+    # assistant = os.getenv("ASSISTANT_ID")
 
-    # Criar um Vector Store e fazer o upload dos arquivos JSON
-    vector_store = create_vector_store()
-    upload_files_to_vector_store(vector_store, ["files/dre_data.json", "files/ativos_data.json"])
+    # # Criar um Vector Store e fazer o upload dos arquivos JSON
+    # vector_store = create_vector_store()
+    # upload_files_to_vector_store(vector_store, ["files/dre_data.json", "files/ativos_data.json"])
 
-    # Atualizar o assistente com o Vector Store criado
-    update_assistant_with_vector_store(assistant, vector_store)
+    # # Atualizar o assistente com o Vector Store criado
+    # update_assistant_with_vector_store(assistant, vector_store)
+    
+    vector_id = os.getenv("VECTOR_ID")
+    # Chame essa função antes de fazer o upload de novos arquivos
+    a = list_vector_store_files(vector_id)
+    print(a)
